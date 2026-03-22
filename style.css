@@ -1,7 +1,21 @@
 body { margin:0; overflow:hidden; background:#87CEEB; }
 canvas { display:block; }
+
 #ui {
-  position:absolute; top:10px; left:10px; color:white; font-family:sans-serif;
+  position:absolute; top:0; left:0; color:white; font-family:sans-serif;
   background:rgba(0,0,0,0.5); padding:10px; border-radius:5px;
+  width:100%; box-sizing:border-box;
 }
-#ui button { margin-top:5px; }
+
+.status, #inventoryUI, .controls { margin-bottom:10px; }
+
+#inventorySlots { display:flex; flex-wrap:wrap; gap:5px; }
+.slot { width:40px; height:40px; background:rgba(255,255,255,0.2);
+        border:1px solid white; display:flex; align-items:center; justify-content:center; color:white; cursor:pointer; }
+
+#craftResult { margin-top:5px; }
+
+@media (max-width: 600px){
+  #ui { font-size:12px; padding:5px; }
+  .slot { width:30px; height:30px; font-size:10px; }
+}
