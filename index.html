@@ -1,21 +1,37 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>MyCraft-Web 单机版</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>MyCraft-Web 单机版</title>
+<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+  <!-- HUD -->
   <div id="ui">
-    <div>模式: <span id="mode">生存</span></div>
-    <div>生命: <span id="hp">20</span></div>
-    <div>饥饿: <span id="hunger">20</span></div>
-    <div>背包: <span id="inventory">空</span></div>
-    <button id="toggleMode">切换模式</button>
-    <div>操作提示：WASD移动, 空格飞行, Shift下降, 1放方块, 2破坏方块, 3吃食物, C合成, F攻击怪物</div>
+    <div class="status">
+      <div>模式: <span id="mode">生存</span></div>
+      <div>生命: <span id="hp">20</span></div>
+      <div>饥饿: <span id="hunger">20</span></div>
+      <button id="toggleMode">切换模式</button>
+    </div>
+    <div id="inventoryUI">
+      <h3>背包</h3>
+      <div id="inventorySlots"></div>
+      <h3>合成台</h3>
+      <button id="craftBtn">合成</button>
+      <div id="craftResult"></div>
+    </div>
+    <div class="controls">
+      <p>操作提示：WASD移动, 空格飞行, Shift下降, 鼠标点击方块, F攻击怪物, 3吃食物, C合成</p>
+    </div>
   </div>
+
   <canvas id="gameCanvas"></canvas>
+
   <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
   <script src="main.js"></script>
+  <script src="inventory.js"></script>
 </body>
 </html>
+
