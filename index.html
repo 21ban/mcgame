@@ -1,37 +1,159 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>MyCraft-Web 单机版</title>
-<link rel="stylesheet" href="style.css">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2 完整爆破模式</title>
+<style>
+body{margin:0;overflow:hidden;background:#000;font-family:Arial}
+#menu{position:absolute;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#000;z-index:10}
+.btn{padding:20px 50px;font-size:22px;border:none;border-radius:30px;background:linear-gradient(45deg,#00f,#0ff);color:#fff;margin:10px}
+#ui{position:absolute;top:10px;left:10px;color:#0ff;display:none}
+#crosshair{position:absolute;top:50%;left:50%;width:14px;height:14px;margin:-7px;border:2px solid #fff;border-radius:50%;display:none}
+</style>
 </head>
 <body>
-  <!-- HUD -->
-  <div id="ui">
-    <div class="status">
-      <div>模式: <span id="mode">生存</span></div>
-      <div>生命: <span id="hp">20</span></div>
-      <div>饥饿: <span id="hunger">20</span></div>
-      <button id="toggleMode">切换模式</button>
-    </div>
-    <div id="inventoryUI">
-      <h3>背包</h3>
-      <div id="inventorySlots"></div>
-      <h3>合成台</h3>
-      <button id="craftBtn">合成</button>
-      <div id="craftResult"></div>
-    </div>
-    <div class="controls">
-      <p>操作提示：WASD移动, 空格飞行, Shift下降, 鼠标点击方块, F攻击怪物, 3吃食物, C合成</p>
-    </div>
-  </div>
 
-  <canvas id="gameCanvas"></canvas>
+<div id="menu">
+<h1 style="color:#0ff">CS2 爆破模式</h1>
+<button class="btn" onclick="startGame('T')">恐怖分子（进攻）</button>
+<button class="btn" onclick="startGame('CT')">反恐精英（防守）</button>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
-  <script src="main.js"></script>
-  <script src="inventory.js"></script>
+<div id="ui">
+阵营: <span id="team"></span><br>
+回合: <span id="round">1</span><br>
+时间: <span id="time">60</span><br>
+HP: <span id="hp">100</span>
+</div>
+<div id="crosshair"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script>
+let started=false,team='T',round=1,time=60;
+let bomb=null,gameTimer;
+
+function startGame(t){
+ team=t;
+ menu.style.display='none';
+ ui.style.display='block';
+ crosshair.style.display='block';
+ document.getElementById('team').innerText=team;
+ document.body.requestPointerLock();
+ started=true;
+ startRound();
+}
+
+function startRound(){
+ time=60;
+ document.getElementById('round').innerText=round;
+ gameTimer=setInterval(()=>{
+  time--;
+  document.getElementById('time').innerText=time;
+  if(time<=0){endRound(team==='CT'?'CT':'T');}
+ },1000);
+}
+
+function endRound(winner){
+ clearInterval(gameTimer);
+ alert(winner+' 获胜');
+ round++;
+ resetGame();
+ startRound();
+}
+
+function resetGame(){
+ enemies.forEach(e=>scene.remove(e));
+ enemies=[];
+ if(bomb){scene.remove(bomb);bomb=null;}
+}
+
+let scene=new THREE.Scene();
+let camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
+let renderer=new THREE.WebGLRenderer();renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444));
+
+let floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:0x222222}));
+floor.rotation.x=-Math.PI/2;scene.add(floor);
+
+camera.position.y=1.6;
+let hp=100;
+
+let keys={};
+onkeydown=e=>keys[e.key.toLowerCase()]=true;
+onkeyup=e=>keys[e.key.toLowerCase()]=false;
+
+onmousemove=e=>{
+ if(document.pointerLockElement===document.body&&started){
+  camera.rotation.y-=e.movementX*0.002;
+  camera.rotation.x-=e.movementY*0.002;
+ }
+};
+
+// 移动
+function movement(){
+ let dir=new THREE.Vector3();
+ if(keys['w'])dir.z-=1;
+ if(keys['s'])dir.z+=1;
+ if(keys['a'])dir.x-=1;
+ if(keys['d'])dir.x+=1;
+ dir.normalize().applyQuaternion(camera.quaternion);
+ camera.position.add(dir.multiplyScalar(0.1));
+}
+
+// 敌人（对立阵营）
+let enemies=[];
+function spawnEnemy(){
+ let e=new THREE.Mesh(new THREE.BoxGeometry(1,2,1),new THREE.MeshStandardMaterial({color:team==='T'?0x0000ff:0xff0000}));
+ e.position.set((Math.random()-0.5)*20,1,-20);
+ enemies.push(e);scene.add(e);
+}
+setInterval(spawnEnemy,3000);
+
+// 射击
+let bullets=[];
+onclick=()=>{if(started)shoot();};
+function shoot(){
+ let b=new THREE.Mesh(new THREE.SphereGeometry(0.05),new THREE.MeshBasicMaterial({color:0xffff00}));
+ b.position.copy(camera.position);
+ let dir=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+ dir.x+=(Math.random()-0.5)*0.02;
+ dir.y+=(Math.random()-0.5)*0.02;
+ b.velocity=dir;
+ bullets.push(b);scene.add(b);
+}
+
+function updateBullets(){
+ bullets.forEach((b,bi)=>{
+  b.position.add(b.velocity.clone().multiplyScalar(0.8));
+  enemies.forEach((e,ei)=>{
+   if(b.position.distanceTo(e.position)<1){
+    scene.remove(e);enemies.splice(ei,1);
+   }
+  });
+ });
+}
+
+// C4逻辑
+onkeydown=e=>{
+ if(e.key==='b' && team==='T' && !bomb){
+  bomb=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5),new THREE.MeshBasicMaterial({color:0x00ff00}));
+  bomb.position.copy(camera.position);
+  scene.add(bomb);
+  setTimeout(()=>{endRound('T');},5000);
+ }
+ if(e.key==='e' && team==='CT' && bomb && camera.position.distanceTo(bomb.position)<2){
+  endRound('CT');
+ }
+};
+
+function update(){
+ if(!started)return;
+ movement();
+ updateBullets();
+}
+
+function animate(){requestAnimationFrame(animate);update();renderer.render(scene,camera);}animate();
+</script>
 </body>
 </html>
-
