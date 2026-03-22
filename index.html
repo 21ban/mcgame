@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>MyCraft-Web 单机版</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="ui">
+    <div>模式: <span id="mode">生存</span></div>
+    <div>生命: <span id="hp">20</span></div>
+    <div>饥饿: <span id="hunger">20</span></div>
+    <div>背包: <span id="inventory">空</span></div>
+    <button id="toggleMode">切换模式</button>
+    <div>操作提示：WASD移动, 空格飞行, Shift下降, 1放方块, 2破坏方块, 3吃食物, C合成, F攻击怪物</div>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
