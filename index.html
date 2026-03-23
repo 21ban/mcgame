@@ -1,10 +1,9 @@
-```html
 <!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>体素沙盒 - 完整合并版</title>
+  <title>像素沙盒</title>
   <style>
     html, body {
       margin: 0;
@@ -27,7 +26,7 @@
       line-height: 1.6;
       user-select: none;
       z-index: 10;
-      max-width: 380px;
+      max-width: 420px;
       backdrop-filter: blur(4px);
     }
 
@@ -46,7 +45,7 @@
       user-select: none;
       pointer-events: none;
       z-index: 10;
-      text-shadow: 0 0 4px rgba(0,0,0,0.5);
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
     }
 
     #start {
@@ -154,16 +153,56 @@
     .dragging {
       opacity: 0.5;
     }
+
+    .statRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .statRow span:first-child {
+      width: 42px;
+    }
+
+    .bar {
+      flex: 1;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ff5b5b, #ffb24d);
+    }
   </style>
 </head>
 <body>
   <div id="hud">
-    <div><b>体素沙盒完整合并版</b></div>
+    <div><b>体素沙盒最终优化版</b></div>
     <div>左键：破坏方块</div>
     <div>右键：放置方块</div>
     <div>WASD：移动，空格：跳跃</div>
     <div>E：打开/关闭背包</div>
+    <div>F：使用当前物品（食物/药品）</div>
     <div>1-9：切换快捷栏</div>
+
+    <div class="statRow">
+      <span>血量</span>
+      <div class="bar"><div id="healthFill" class="fill"></div></div>
+      <span id="healthText">20/20</span>
+    </div>
+
+    <div class="statRow">
+      <span>饥饿</span>
+      <div class="bar"><div id="hungerFill" class="fill"></div></div>
+      <span id="hungerText">20/20</span>
+    </div>
+
     <div>当前：<span id="currentSlotInfo">-</span></div>
     <div>背包占用：<span id="inventoryInfo">0/27</span></div>
   </div>
@@ -263,12 +302,14 @@
     scene.add(sunMesh);
 
     // =========================
-    // 体素材质
+    // 体素材质 / 方块与物品
     // =========================
     const materials = {
       grass: new THREE.MeshStandardMaterial({ color: 0x5dbb63, roughness: 1, metalness: 0 }),
       dirt: new THREE.MeshStandardMaterial({ color: 0x8b6b3f, roughness: 1, metalness: 0 }),
       stone: new THREE.MeshStandardMaterial({ color: 0x8f8f8f, roughness: 1, metalness: 0 }),
+      sand: new THREE.MeshStandardMaterial({ color: 0xd9c98b, roughness: 1, metalness: 0 }),
+      gravel: new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 1, metalness: 0 }),
       wood: new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 1, metalness: 0 }),
       leaf: new THREE.MeshStandardMaterial({
         color: 0x3d8f3d,
@@ -276,16 +317,33 @@
         transparent: true,
         opacity: 0.88,
         depthWrite: false
+      }),
+      plank: new THREE.MeshStandardMaterial({ color: 0xb8875f, roughness: 1, metalness: 0 }),
+      brick: new THREE.MeshStandardMaterial({ color: 0xa9564f, roughness: 1, metalness: 0 }),
+      glass: new THREE.MeshStandardMaterial({
+        color: 0xb8f0ff,
+        roughness: 0.05,
+        metalness: 0,
+        transparent: true,
+        opacity: 0.45
       })
     };
 
-    const BLOCK_TYPES = ['grass', 'dirt', 'stone', 'wood', 'leaf'];
+    const BLOCK_TYPES = ['grass', 'dirt', 'stone', 'sand', 'gravel', 'wood', 'leaf', 'plank', 'brick', 'glass'];
+    const PLACEABLE_BLOCKS = new Set(BLOCK_TYPES);
     const STACK_LIMIT = 64;
+
+    const CONSUMABLES = {
+      apple: { hunger: 6, health: 0 },
+      bread: { hunger: 10, health: 0 },
+      steak: { hunger: 12, health: 2 },
+      bandage: { hunger: 0, health: 6 }
+    };
 
     // =========================
     // 背包系统
     // =========================
-    const SAVE_KEY = 'voxel_sandbox_save_full_combined_v1';
+    const SAVE_KEY = 'voxel_sandbox_final_optimized_v1';
     const HOTBAR_SIZE = 9;
     const INVENTORY_SIZE = 27;
 
@@ -302,9 +360,7 @@
     }
 
     function normalizeSlot(slot) {
-      if (!slot || slot.count <= 0 || !slot.type) {
-        return emptySlot();
-      }
+      if (!slot || slot.count <= 0 || !slot.type) return emptySlot();
       return { type: slot.type, count: slot.count };
     }
 
@@ -314,6 +370,18 @@
         hotbar[0] = { type: 'grass', count: 32 };
         hotbar[1] = { type: 'dirt', count: 32 };
         hotbar[2] = { type: 'stone', count: 32 };
+        hotbar[3] = { type: 'sand', count: 32 };
+        hotbar[4] = { type: 'gravel', count: 32 };
+        hotbar[5] = { type: 'plank', count: 32 };
+        hotbar[6] = { type: 'brick', count: 32 };
+        hotbar[7] = { type: 'glass', count: 16 };
+        hotbar[8] = { type: 'apple', count: 6 };
+
+        inventory[0] = { type: 'bread', count: 6 };
+        inventory[1] = { type: 'steak', count: 3 };
+        inventory[2] = { type: 'bandage', count: 4 };
+        inventory[3] = { type: 'wood', count: 16 };
+        inventory[4] = { type: 'leaf', count: 16 };
       }
     }
 
@@ -388,6 +456,29 @@
       return hotbar[selectedSlot]?.type || null;
     }
 
+    function isConsumable(type) {
+      return !!CONSUMABLES[type];
+    }
+
+    function isPlaceableItem(type) {
+      return PLACEABLE_BLOCKS.has(type);
+    }
+
+    function useSelectedItem() {
+      const type = selectedItemType();
+      if (!type || !isConsumable(type)) return false;
+
+      const effect = CONSUMABLES[type];
+      if (effect.hunger > 0) hunger = Math.min(MAX_HUNGER, hunger + effect.hunger);
+      if (effect.health > 0) health = Math.min(MAX_HEALTH, health + effect.health);
+
+      consumeSelectedItem();
+      updateVitalsUI();
+      markStatsDirty();
+      saveGame();
+      return true;
+    }
+
     function getSlot(section, index) {
       return section === 'hotbar' ? hotbar[index] : inventory[index];
     }
@@ -431,13 +522,83 @@
     }
 
     // =========================
-    // 世界 / Chunk / 面剔除
+    // 玩家生命 / 饥饿 / 坠落伤害
+    // =========================
+    const MAX_HEALTH = 20;
+    const MAX_HUNGER = 20;
+    const EYE_HEIGHT = 1.6;
+
+    let health = MAX_HEALTH;
+    let hunger = MAX_HUNGER;
+    let spawnPosition = new THREE.Vector3(0, 0, 0);
+
+    let fallStartY = null;
+    let starvationTimer = 0;
+    let statsDirty = false;
+    let statSaveTimer = 0;
+
+    function updateVitalsUI() {
+      healthFill.style.width = `${(Math.max(0, health) / MAX_HEALTH) * 100}%`;
+      hungerFill.style.width = `${(Math.max(0, hunger) / MAX_HUNGER) * 100}%`;
+      healthText.textContent = `${Math.max(0, Math.ceil(health))}/${MAX_HEALTH}`;
+      hungerText.textContent = `${Math.max(0, Math.ceil(hunger))}/${MAX_HUNGER}`;
+    }
+
+    function markStatsDirty() {
+      statsDirty = true;
+    }
+
+    function takeDamage(amount) {
+      if (health <= 0) return;
+      health = Math.max(0, health - amount);
+      updateVitalsUI();
+      markStatsDirty();
+
+      if (health <= 0) {
+        respawnPlayer();
+      }
+    }
+
+    function heal(amount) {
+      const old = health;
+      health = Math.min(MAX_HEALTH, health + amount);
+      if (health !== old) {
+        updateVitalsUI();
+        markStatsDirty();
+      }
+    }
+
+    function respawnPlayer() {
+      health = MAX_HEALTH;
+      hunger = MAX_HUNGER;
+      velocityY = 0;
+      onGround = false;
+      fallStartY = null;
+      starvationTimer = 0;
+
+      camera.position.copy(spawnPosition);
+      camera.position.y = getSurfaceYAt(Math.round(spawnPosition.x), Math.round(spawnPosition.z)) + EYE_HEIGHT + 2;
+
+      yaw = 0;
+      pitch = 0;
+      camera.rotation.set(pitch, yaw, 0, 'YXZ');
+
+      updateVitalsUI();
+      saveGame();
+    }
+
+    // =========================
+    // 世界 / 地形 / 树木
     // =========================
     const CHUNK_SIZE = 16;
-    const LOAD_RADIUS = 2;
+    const STREAM_LOAD_RADIUS = 3;
+    const STARTUP_LOAD_RADIUS = 5;
+    const MAX_CHUNKS_PER_FRAME = 8;
     const MAX_BUILD_HEIGHT = 32;
     const WORLD_EDIT = new Map();
     const loadedChunks = new Map();
+    const chunkLoadQueue = [];
+    const queuedChunkSet = new Set();
     const raycaster = new THREE.Raycaster();
 
     function key3(x, y, z) {
@@ -455,6 +616,28 @@
       };
     }
 
+    function queueChunk(cx, cz) {
+      const ck = chunkKey(cx, cz);
+      if (loadedChunks.has(ck) || queuedChunkSet.has(ck)) return;
+      chunkLoadQueue.push({ cx, cz, ck });
+      queuedChunkSet.add(ck);
+    }
+
+    function processChunkQueue(maxCount = MAX_CHUNKS_PER_FRAME) {
+      let count = 0;
+
+      while (chunkLoadQueue.length > 0 && count < maxCount) {
+        const { cx, cz, ck } = chunkLoadQueue.shift();
+        queuedChunkSet.delete(ck);
+
+        if (!loadedChunks.has(ck)) {
+          loadChunk(cx, cz);
+        }
+
+        count++;
+      }
+    }
+
     function terrainHeight(x, z) {
       const n =
         Math.sin(x * 0.18) * 1.6 +
@@ -462,14 +645,6 @@
         Math.sin((x + z) * 0.11) * 0.9;
 
       return Math.max(2, Math.min(8, Math.floor(4 + n)));
-    }
-
-    function baseTypeAt(x, y, z) {
-      const h = terrainHeight(x, z);
-      if (y > h) return null;
-      if (y === h) return 'grass';
-      if (y >= h - 2) return 'dirt';
-      return 'stone';
     }
 
     function hash2(x, z, seed = 0) {
@@ -498,12 +673,10 @@
           const h = treeHeightAt(rx, rz);
           const trunkTop = baseY + h;
 
-          // 树干
           if (x === rx && z === rz && y > baseY && y <= trunkTop) {
             return 'wood';
           }
 
-          // 树冠
           const dy = y - trunkTop;
           const dist2 = dx * dx + dz * dz + dy * dy;
           if (y >= trunkTop - 1 && y <= trunkTop + 2 && dist2 <= 6.5) {
@@ -514,9 +687,28 @@
       return null;
     }
 
+    function baseTypeAt(x, y, z) {
+      const h = terrainHeight(x, z);
+      if (y > h) return null;
+
+      if (y === h) {
+        if (h <= 3) return 'sand';
+        if (hash2(x, z, 5) < 0.07) return 'gravel';
+        return 'grass';
+      }
+
+      if (y >= h - 2) {
+        if (h <= 3) return 'sand';
+        return 'dirt';
+      }
+
+      if (hash2(x, z, 6) < 0.02 && y === h - 3) return 'gravel';
+      return 'stone';
+    }
+
     function getBlockType(x, y, z) {
       const k = key3(x, y, z);
-      if (WORLD_EDIT.has(k)) return WORLD_EDIT.get(k); // null 表示空气
+      if (WORLD_EDIT.has(k)) return WORLD_EDIT.get(k);
 
       const tree = treeBlockAt(x, y, z);
       if (tree) return tree;
@@ -611,7 +803,7 @@
               const ny = y + face.normal[1];
               const nz = gz + face.normal[2];
 
-              if (getBlockType(nx, ny, nz)) continue; // 邻居存在，剔除该面
+              if (getBlockType(nx, ny, nz)) continue;
 
               const base = positions.length / 3;
 
@@ -672,6 +864,7 @@
         const mesh = new THREE.Mesh(geo, materials[type]);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+        mesh.frustumCulled = true;
         mesh.userData.type = type;
         group.add(mesh);
         meshes[type] = mesh;
@@ -695,18 +888,19 @@
       loadedChunks.delete(ck);
     }
 
-    function ensureChunksAroundPlayer() {
+    function ensureChunksAroundPlayer(radius = STREAM_LOAD_RADIUS) {
       const pcx = Math.floor(camera.position.x / CHUNK_SIZE);
       const pcz = Math.floor(camera.position.z / CHUNK_SIZE);
 
       const keep = new Set();
 
-      for (let dx = -LOAD_RADIUS; dx <= LOAD_RADIUS; dx++) {
-        for (let dz = -LOAD_RADIUS; dz <= LOAD_RADIUS; dz++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dz = -radius; dz <= radius; dz++) {
           const cx = pcx + dx;
           const cz = pcz + dz;
-          keep.add(chunkKey(cx, cz));
-          loadChunk(cx, cz);
+          const ck = chunkKey(cx, cz);
+          keep.add(ck);
+          queueChunk(cx, cz);
         }
       }
 
@@ -720,7 +914,7 @@
 
     function rebuildChunk(cx, cz) {
       unloadChunk(cx, cz);
-      loadChunk(cx, cz);
+      queueChunk(cx, cz);
     }
 
     function rebuildAffectedChunksByBlock(x, z) {
@@ -742,6 +936,13 @@
       }
     }
 
+    function prewarmWorld() {
+      ensureChunksAroundPlayer(STARTUP_LOAD_RADIUS);
+      for (let i = 0; i < 8; i++) {
+        processChunkQueue(MAX_CHUNKS_PER_FRAME);
+      }
+    }
+
     // =========================
     // 存档
     // =========================
@@ -759,11 +960,20 @@
         rotation: {
           yaw,
           pitch
+        },
+        health,
+        hunger,
+        spawnPosition: {
+          x: spawnPosition.x,
+          y: spawnPosition.y,
+          z: spawnPosition.z
         }
       };
 
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-      refreshUI();
+      statsDirty = false;
+      statSaveTimer = 0;
+      renderAllUI();
     }
 
     function loadGame() {
@@ -790,9 +1000,7 @@
 
         WORLD_EDIT.clear();
         if (Array.isArray(data.edits)) {
-          for (const [k, v] of data.edits) {
-            WORLD_EDIT.set(k, v);
-          }
+          for (const [k, v] of data.edits) WORLD_EDIT.set(k, v);
         }
 
         if (data.camera) {
@@ -803,6 +1011,15 @@
           yaw = data.rotation.yaw || 0;
           pitch = data.rotation.pitch || 0;
           camera.rotation.set(pitch, yaw, 0, 'YXZ');
+        }
+
+        health = typeof data.health === 'number' ? data.health : MAX_HEALTH;
+        hunger = typeof data.hunger === 'number' ? data.hunger : MAX_HUNGER;
+
+        if (data.spawnPosition) {
+          spawnPosition.set(data.spawnPosition.x, data.spawnPosition.y, data.spawnPosition.z);
+        } else {
+          spawnPosition.copy(camera.position);
         }
       } catch (err) {
         console.warn('读取存档失败：', err);
@@ -822,9 +1039,27 @@
     const crosshairEl = document.getElementById('crosshair');
     const startEl = document.getElementById('start');
 
+    const healthFill = document.getElementById('healthFill');
+    const hungerFill = document.getElementById('hungerFill');
+    const healthText = document.getElementById('healthText');
+    const hungerText = document.getElementById('hungerText');
+
     let inventoryOpen = false;
     let isLocked = false;
     let dragSource = null;
+
+    function renderSlotEl(el, slot, isSelected = false) {
+      el.classList.toggle('selected', isSelected);
+      el.querySelector('.type').textContent = slot.type ? slot.type : '';
+      el.querySelector('.count').textContent = slot.count > 0 ? String(slot.count) : '';
+    }
+
+    function updateVitalsUI() {
+      healthFill.style.width = `${(Math.max(0, health) / MAX_HEALTH) * 100}%`;
+      hungerFill.style.width = `${(Math.max(0, hunger) / MAX_HUNGER) * 100}%`;
+      healthText.textContent = `${Math.max(0, Math.ceil(health))}/${MAX_HEALTH}`;
+      hungerText.textContent = `${Math.max(0, Math.ceil(hunger))}/${MAX_HUNGER}`;
+    }
 
     function makeSlotEl(section, index) {
       const el = document.createElement('div');
@@ -890,12 +1125,6 @@
       inventorySlots.push(el);
     }
 
-    function renderSlotEl(el, slot, isSelected = false) {
-      el.classList.toggle('selected', isSelected);
-      el.querySelector('.type').textContent = slot.type ? slot.type : '';
-      el.querySelector('.count').textContent = slot.count > 0 ? String(slot.count) : '';
-    }
-
     function renderAllUI() {
       for (let i = 0; i < HOTBAR_SIZE; i++) {
         const slot = hotbar[i];
@@ -913,10 +1142,8 @@
 
       inventoryPanelEl.style.display = inventoryOpen ? 'block' : 'none';
       crosshairEl.style.display = inventoryOpen ? 'none' : 'block';
-    }
 
-    function refreshUI() {
-      renderAllUI();
+      updateVitalsUI();
     }
 
     function selectSlot(index) {
@@ -950,7 +1177,6 @@
     };
 
     const clock = new THREE.Clock();
-    const eyeHeight = 1.6;
     let velocityY = 0;
     let onGround = false;
 
@@ -979,6 +1205,11 @@
     document.addEventListener('keydown', (e) => {
       if (e.code === 'KeyE') {
         toggleInventory();
+        return;
+      }
+
+      if (!inventoryOpen && e.code === 'KeyF') {
+        useSelectedItem();
         return;
       }
 
@@ -1059,6 +1290,7 @@
     function placeBlock() {
       const selected = selectedItemType();
       if (!selected) return;
+      if (!isPlaceableItem(selected)) return;
 
       const hit = getAimHit();
       if (!hit) return;
@@ -1101,14 +1333,18 @@
 
     if (!localStorage.getItem(SAVE_KEY)) {
       const surface = getSurfaceYAt(0, 0);
-      camera.position.set(0, surface + eyeHeight + 2, 12);
+      camera.position.set(0, surface + EYE_HEIGHT + 2, 12);
       yaw = 0;
       pitch = 0;
       camera.rotation.set(pitch, yaw, 0, 'YXZ');
+      spawnPosition.copy(camera.position);
+    } else if (spawnPosition.lengthSq() === 0) {
+      spawnPosition.copy(camera.position);
     }
 
+    updateVitalsUI();
     renderAllUI();
-    ensureChunksAroundPlayer();
+    prewarmWorld();
     saveGame();
 
     // =========================
@@ -1121,16 +1357,14 @@
 
       const dt = Math.min(clock.getDelta(), 0.05);
 
-      // 天空始终包裹玩家
       skyDome.position.copy(camera.position);
       sunMesh.position.copy(camera.position).add(new THREE.Vector3(60, 80, -40));
 
+      processChunkQueue(MAX_CHUNKS_PER_FRAME);
+      ensureChunksAroundPlayer(STREAM_LOAD_RADIUS);
+
       if (!inventoryOpen) {
         streamTimer += dt;
-        if (streamTimer > 0.18) {
-          ensureChunksAroundPlayer();
-          streamTimer = 0;
-        }
 
         const speed = 7;
         const forward = new THREE.Vector3();
@@ -1153,26 +1387,72 @@
           camera.position.addScaledVector(moveDir, speed * dt);
         }
 
+        const moving = moveDir.lengthSq() > 0;
+
+        // 饥饿：移动消耗更快，静止消耗更慢
+        const hungerDrain = moving ? 0.35 : 0.08;
+        hunger = Math.max(0, hunger - hungerDrain * dt);
+        markStatsDirty();
+
+        // 饥饿为 0 后开始扣血
+        if (hunger <= 0) {
+          starvationTimer += dt;
+          if (starvationTimer >= 2.5) {
+            takeDamage(1);
+            starvationTimer = 0;
+          }
+        } else {
+          starvationTimer = 0;
+        }
+
+        // 饥饿较高时小幅回血
+        if (hunger >= 18 && health < MAX_HEALTH) {
+          heal(0.15 * dt);
+        }
+
+        // 重力 / 跳跃
         const gravity = 18;
         if (moveState.jump && onGround) {
           velocityY = 7.8;
           onGround = false;
+          fallStartY = null;
         }
 
         velocityY -= gravity * dt;
         camera.position.y += velocityY * dt;
 
+        // 进入下降阶段时记录坠落起点
+        if (velocityY < 0 && fallStartY === null) {
+          fallStartY = camera.position.y;
+        }
+
+        // 地面碰撞 + 坠落伤害
         const x = Math.round(camera.position.x);
         const z = Math.round(camera.position.z);
         const groundSurface = getSurfaceYAt(x, z);
+        const landY = groundSurface + EYE_HEIGHT;
 
-        if (camera.position.y <= groundSurface + eyeHeight) {
-          camera.position.y = groundSurface + eyeHeight;
+        if (camera.position.y <= landY) {
+          if (fallStartY !== null) {
+            const fallDistance = fallStartY - landY;
+            if (fallDistance > 5) {
+              const damage = Math.floor((fallDistance - 5) * 2);
+              takeDamage(damage);
+            }
+          }
+
+          camera.position.y = landY;
           velocityY = 0;
           onGround = true;
+          fallStartY = null;
         } else {
           onGround = false;
         }
+      }
+
+      statSaveTimer += dt;
+      if (statsDirty && statSaveTimer >= 5) {
+        saveGame();
       }
 
       renderAllUI();
@@ -1194,4 +1474,3 @@
   </script>
 </body>
 </html>
-```
