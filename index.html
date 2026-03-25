@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>像素沙盒</title>
+  <title>体素沙盒 - 终极升级版 3</title>
   <style>
     html, body {
       margin: 0;
@@ -26,7 +26,7 @@
       line-height: 1.6;
       user-select: none;
       z-index: 10;
-      max-width: 420px;
+      max-width: 480px;
       backdrop-filter: blur(4px);
     }
 
@@ -44,7 +44,7 @@
       text-align: center;
       user-select: none;
       pointer-events: none;
-      z-index: 10;
+      z-index: 12;
       text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
     }
 
@@ -62,6 +62,16 @@
       cursor: pointer;
       text-align: center;
       padding: 20px;
+    }
+
+    #damageFlash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: rgba(255, 0, 0, 0.35);
+      opacity: 0;
+      z-index: 14;
+      mix-blend-mode: multiply;
     }
 
     #hotbar {
@@ -118,7 +128,7 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: min(680px, calc(100vw - 24px));
+      width: min(860px, calc(100vw - 24px));
       background: rgba(15, 15, 15, 0.82);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 16px;
@@ -150,6 +160,57 @@
       justify-content: center;
     }
 
+    .craftGrid {
+      display: grid;
+      grid-template-columns: repeat(3, 54px);
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .craftArea {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .craftBox {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .craftResultWrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 110px;
+    }
+
+    .craftResult {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.38);
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .craftResult.empty {
+      opacity: 0.5;
+      cursor: default;
+    }
+
     .dragging {
       opacity: 0.5;
     }
@@ -179,16 +240,49 @@
       border-radius: 999px;
       background: linear-gradient(90deg, #ff5b5b, #ffb24d);
     }
+
+    #minimapBox {
+      position: fixed;
+      right: 16px;
+      top: 16px;
+      z-index: 12;
+      background: rgba(15, 15, 15, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 8px;
+      backdrop-filter: blur(4px);
+      user-select: none;
+    }
+
+    #minimapTitle {
+      color: #fff;
+      font-size: 12px;
+      margin-bottom: 6px;
+      opacity: 0.92;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    #minimap {
+      display: block;
+      width: 160px;
+      height: 160px;
+      border-radius: 8px;
+      background: #000;
+    }
   </style>
 </head>
 <body>
+  <div id="damageFlash"></div>
+
   <div id="hud">
-    <div><b>体素沙盒最终优化版</b></div>
+    <div><b>体素沙盒终极升级版</b></div>
     <div>左键：破坏方块</div>
     <div>右键：放置方块</div>
     <div>WASD：移动，空格：跳跃</div>
     <div>E：打开/关闭背包</div>
     <div>F：使用当前物品（食物/药品）</div>
+    <div>C：打开/关闭合成台</div>
     <div>1-9：切换快捷栏</div>
 
     <div class="statRow">
@@ -214,11 +308,35 @@
 
   <div id="inventoryPanel">
     <div class="title">Inventory</div>
+
+    <div class="craftBox">
+      <div class="subtitle">合成台（3×3）</div>
+      <div class="craftArea">
+        <div>
+          <div id="craftGrid" class="craftGrid"></div>
+        </div>
+        <div class="craftResultWrap">
+          <div id="craftResult" class="craftResult empty">
+            <div class="type"></div>
+            <div class="count"></div>
+          </div>
+          <div style="font-size:12px;opacity:0.85;text-align:center;line-height:1.4;">
+            点击格子：<br>用当前快捷栏物品放入 1 个<br>空手点击：取回 1 个
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="subtitle">拖拽交换；相同物品会自动堆叠，最大 64 个</div>
     <div class="subtitle">Hotbar</div>
     <div id="inventoryHotbar" class="grid"></div>
     <div class="subtitle">Inventory</div>
     <div id="inventoryGrid" class="grid"></div>
+  </div>
+
+  <div id="minimapBox">
+    <div id="minimapTitle">MAP</div>
+    <canvas id="minimap" width="160" height="160"></canvas>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -230,12 +348,7 @@
     scene.background = new THREE.Color(0x87ceeb);
     scene.fog = new THREE.Fog(0x87ceeb, 18, 120);
 
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 10, 12);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -246,7 +359,8 @@
     document.body.appendChild(renderer.domElement);
     renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+    scene.add(ambientLight);
 
     const sun = new THREE.DirectionalLight(0xffffff, 1.15);
     sun.position.set(30, 50, 20);
@@ -262,7 +376,7 @@
     scene.add(sun);
 
     // =========================
-    // 天空穹顶 / 太阳
+    // 天空穹顶 / 昼夜
     // =========================
     const skyDome = new THREE.Mesh(
       new THREE.SphereGeometry(500, 32, 16),
@@ -298,11 +412,45 @@
       new THREE.SphereGeometry(4, 24, 16),
       new THREE.MeshBasicMaterial({ color: 0xfff2b0 })
     );
-    sunMesh.position.set(60, 80, -40);
     scene.add(sunMesh);
 
+    const dayTop = new THREE.Color(0x87ceeb);
+    const dayBottom = new THREE.Color(0xdff4ff);
+    const nightTop = new THREE.Color(0x09111f);
+    const nightBottom = new THREE.Color(0x12192a);
+    const fogDay = new THREE.Color(0x87ceeb);
+    const fogNight = new THREE.Color(0x09131f);
+    const sunWarm = new THREE.Color(0xfff2b0);
+    const moonCool = new THREE.Color(0xcfdcff);
+
+    let worldTime = 0;
+    let daylight = 1;
+
+    function updateDayNight(dt) {
+      worldTime += dt * 0.015;
+      const phase = worldTime % 1;
+      const angle = phase * Math.PI * 2 - Math.PI / 2;
+      daylight = Math.max(0, Math.sin(angle) * 0.5 + 0.5);
+
+      ambientLight.intensity = 0.12 + daylight * 0.68;
+      sun.intensity = 0.06 + daylight * 1.18;
+      sun.position.set(Math.cos(angle) * 90, Math.sin(angle) * 90, -40);
+      sunMesh.position.copy(sun.position);
+
+      const top = new THREE.Color().lerpColors(nightTop, dayTop, daylight);
+      const bottom = new THREE.Color().lerpColors(nightBottom, dayBottom, daylight);
+      const fog = new THREE.Color().lerpColors(fogNight, fogDay, daylight);
+
+      skyDome.material.uniforms.topColor.value.copy(top);
+      skyDome.material.uniforms.bottomColor.value.copy(bottom);
+      scene.background.copy(bottom);
+      scene.fog.color.copy(fog);
+      sunMesh.material.color.copy(new THREE.Color().lerpColors(moonCool, sunWarm, daylight));
+      sunMesh.visible = daylight > 0.03;
+    }
+
     // =========================
-    // 体素材质 / 方块与物品
+    // 方块材质 / 物品 / 工具
     // =========================
     const materials = {
       grass: new THREE.MeshStandardMaterial({ color: 0x5dbb63, roughness: 1, metalness: 0 }),
@@ -311,25 +459,15 @@
       sand: new THREE.MeshStandardMaterial({ color: 0xd9c98b, roughness: 1, metalness: 0 }),
       gravel: new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 1, metalness: 0 }),
       wood: new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 1, metalness: 0 }),
-      leaf: new THREE.MeshStandardMaterial({
-        color: 0x3d8f3d,
-        roughness: 1,
-        transparent: true,
-        opacity: 0.88,
-        depthWrite: false
-      }),
+      leaf: new THREE.MeshStandardMaterial({ color: 0x3d8f3d, roughness: 1, transparent: true, opacity: 0.88, depthWrite: false }),
       plank: new THREE.MeshStandardMaterial({ color: 0xb8875f, roughness: 1, metalness: 0 }),
       brick: new THREE.MeshStandardMaterial({ color: 0xa9564f, roughness: 1, metalness: 0 }),
-      glass: new THREE.MeshStandardMaterial({
-        color: 0xb8f0ff,
-        roughness: 0.05,
-        metalness: 0,
-        transparent: true,
-        opacity: 0.45
-      })
+      glass: new THREE.MeshStandardMaterial({ color: 0xb8f0ff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.45 }),
+      water: new THREE.MeshStandardMaterial({ color: 0x4aa3ff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.55, depthWrite: false }),
+      snow: new THREE.MeshStandardMaterial({ color: 0xf5f9ff, roughness: 1, metalness: 0 })
     };
 
-    const BLOCK_TYPES = ['grass', 'dirt', 'stone', 'sand', 'gravel', 'wood', 'leaf', 'plank', 'brick', 'glass'];
+    const BLOCK_TYPES = ['grass', 'dirt', 'stone', 'sand', 'gravel', 'wood', 'leaf', 'plank', 'brick', 'glass', 'water', 'snow'];
     const PLACEABLE_BLOCKS = new Set(BLOCK_TYPES);
     const STACK_LIMIT = 64;
 
@@ -340,15 +478,28 @@
       bandage: { hunger: 0, health: 6 }
     };
 
+    const TOOL_DEFS = {
+      wood_pickaxe: { maxDurability: 60, label: '木镐' },
+      stone_pickaxe: { maxDurability: 132, label: '石镐' },
+      wood_axe: { maxDurability: 59, label: '木斧' },
+      stone_axe: { maxDurability: 131, label: '石斧' },
+      wood_shovel: { maxDurability: 59, label: '木铲' },
+      stone_shovel: { maxDurability: 131, label: '石铲' }
+    };
+
+    function isToolItem(type) {
+      return !!TOOL_DEFS[type];
+    }
+
     // =========================
     // 背包系统
     // =========================
-    const SAVE_KEY = 'voxel_sandbox_final_optimized_v1';
+    const SAVE_KEY = 'voxel_sandbox_final_ultimate_v2';
     const HOTBAR_SIZE = 9;
     const INVENTORY_SIZE = 27;
 
     function emptySlot() {
-      return { type: null, count: 0 };
+      return { type: null, count: 0, durability: null, maxDurability: null };
     }
 
     let hotbar = Array.from({ length: HOTBAR_SIZE }, () => emptySlot());
@@ -356,32 +507,59 @@
     let selectedSlot = 0;
 
     function cloneSlot(slot) {
-      return { type: slot.type, count: slot.count };
+      return {
+        type: slot.type,
+        count: slot.count,
+        durability: slot.durability ?? null,
+        maxDurability: slot.maxDurability ?? null
+      };
     }
 
     function normalizeSlot(slot) {
       if (!slot || slot.count <= 0 || !slot.type) return emptySlot();
-      return { type: slot.type, count: slot.count };
+
+      if (isToolItem(slot.type)) {
+        const maxDurability = TOOL_DEFS[slot.type].maxDurability;
+        return {
+          type: slot.type,
+          count: 1,
+          durability: typeof slot.durability === 'number' ? Math.max(0, Math.min(maxDurability, slot.durability)) : maxDurability,
+          maxDurability
+        };
+      }
+
+      return {
+        type: slot.type,
+        count: Math.max(1, Math.floor(slot.count)),
+        durability: null,
+        maxDurability: null
+      };
+    }
+
+    function makeTool(type) {
+      const def = TOOL_DEFS[type];
+      return { type, count: 1, durability: def.maxDurability, maxDurability: def.maxDurability };
     }
 
     function ensureStarterItems() {
       const hasAny = hotbar.some(s => s.type);
       if (!hasAny) {
-        hotbar[0] = { type: 'grass', count: 32 };
-        hotbar[1] = { type: 'dirt', count: 32 };
-        hotbar[2] = { type: 'stone', count: 32 };
-        hotbar[3] = { type: 'sand', count: 32 };
-        hotbar[4] = { type: 'gravel', count: 32 };
-        hotbar[5] = { type: 'plank', count: 32 };
-        hotbar[6] = { type: 'brick', count: 32 };
-        hotbar[7] = { type: 'glass', count: 16 };
-        hotbar[8] = { type: 'apple', count: 6 };
+        hotbar[0] = { type: 'grass', count: 32, durability: null, maxDurability: null };
+        hotbar[1] = { type: 'dirt', count: 32, durability: null, maxDurability: null };
+        hotbar[2] = { type: 'stone', count: 32, durability: null, maxDurability: null };
+        hotbar[3] = { type: 'sand', count: 32, durability: null, maxDurability: null };
+        hotbar[4] = { type: 'gravel', count: 32, durability: null, maxDurability: null };
+        hotbar[5] = { type: 'plank', count: 32, durability: null, maxDurability: null };
+        hotbar[6] = { type: 'brick', count: 32, durability: null, maxDurability: null };
+        hotbar[7] = { type: 'glass', count: 16, durability: null, maxDurability: null };
+        hotbar[8] = { type: 'apple', count: 6, durability: null, maxDurability: null };
 
-        inventory[0] = { type: 'bread', count: 6 };
-        inventory[1] = { type: 'steak', count: 3 };
-        inventory[2] = { type: 'bandage', count: 4 };
-        inventory[3] = { type: 'wood', count: 16 };
-        inventory[4] = { type: 'leaf', count: 16 };
+        inventory[0] = { type: 'bread', count: 6, durability: null, maxDurability: null };
+        inventory[1] = { type: 'steak', count: 3, durability: null, maxDurability: null };
+        inventory[2] = { type: 'bandage', count: 4, durability: null, maxDurability: null };
+        inventory[3] = { type: 'wood', count: 16, durability: null, maxDurability: null };
+        inventory[4] = { type: 'leaf', count: 16, durability: null, maxDurability: null };
+        inventory[5] = makeTool('wood_pickaxe');
       }
     }
 
@@ -390,9 +568,24 @@
     }
 
     function addItem(type, count = 1) {
+      if (isToolItem(type)) {
+        const tool = makeTool(type);
+        let slot = hotbar.find(s => !s.type);
+        if (slot) {
+          Object.assign(slot, tool);
+          return true;
+        }
+        slot = inventory.find(s => !s.type);
+        if (slot) {
+          Object.assign(slot, tool);
+          return true;
+        }
+        return false;
+      }
+
       while (count > 0) {
         const cur = hotbar[selectedSlot];
-        if ((!cur.type || cur.type === type) && cur.count < STACK_LIMIT) {
+        if ((!cur.type || cur.type === type) && !isToolItem(cur.type) && cur.count < STACK_LIMIT) {
           cur.type = type;
           const add = Math.min(count, STACK_LIMIT - cur.count);
           cur.count += add;
@@ -400,7 +593,7 @@
           continue;
         }
 
-        let slot = hotbar.find((s, i) => i !== selectedSlot && s.type === type && s.count < STACK_LIMIT);
+        let slot = hotbar.find((s, i) => i !== selectedSlot && s.type === type && !isToolItem(s.type) && s.count < STACK_LIMIT);
         if (slot) {
           const add = Math.min(count, STACK_LIMIT - slot.count);
           slot.count += add;
@@ -408,7 +601,7 @@
           continue;
         }
 
-        slot = inventory.find(s => s.type === type && s.count < STACK_LIMIT);
+        slot = inventory.find(s => s.type === type && !isToolItem(s.type) && s.count < STACK_LIMIT);
         if (slot) {
           const add = Math.min(count, STACK_LIMIT - slot.count);
           slot.count += add;
@@ -441,7 +634,7 @@
 
     function consumeSelectedItem() {
       const slot = hotbar[selectedSlot];
-      if (!slot.type || slot.count <= 0) return null;
+      if (!slot.type || slot.count <= 0 || isToolItem(slot.type)) return null;
 
       const type = slot.type;
       slot.count -= 1;
@@ -479,6 +672,15 @@
       return true;
     }
 
+    function damageSelectedTool(amount = 1) {
+      const slot = hotbar[selectedSlot];
+      if (!slot?.type || !isToolItem(slot.type)) return;
+      slot.durability = Math.max(0, (slot.durability ?? 0) - amount);
+      if (slot.durability <= 0) {
+        hotbar[selectedSlot] = emptySlot();
+      }
+    }
+
     function getSlot(section, index) {
       return section === 'hotbar' ? hotbar[index] : inventory[index];
     }
@@ -495,7 +697,19 @@
       const target = getSlot(to.section, to.index);
       if (!source.type || source.count <= 0) return;
 
-      if (target.type && target.type === source.type) {
+      if (isToolItem(source.type)) {
+        if (!target.type) {
+          setSlot(to.section, to.index, cloneSlot(source));
+          setSlot(from.section, from.index, emptySlot());
+          return;
+        }
+        const temp = cloneSlot(source);
+        setSlot(from.section, from.index, cloneSlot(target));
+        setSlot(to.section, to.index, temp);
+        return;
+      }
+
+      if (target.type && target.type === source.type && !isToolItem(target.type)) {
         const space = STACK_LIMIT - target.count;
         if (space <= 0) return;
 
@@ -522,20 +736,184 @@
     }
 
     // =========================
-    // 玩家生命 / 饥饿 / 坠落伤害
+    // 合成台（3x3）
+    // =========================
+    const CRAFT_SIZE = 9;
+    const craftSlots = Array.from({ length: CRAFT_SIZE }, () => emptySlot());
+    let craftResult = emptySlot();
+
+    const RECIPES = [
+      {
+        pattern: [
+          null, null, null,
+          'plank', null, null,
+          'plank', null, null
+        ],
+        output: { type: 'stick', count: 4 }
+      },
+      {
+        pattern: [
+          'plank', 'plank', 'plank',
+          null, 'stick', null,
+          null, 'stick', null
+        ],
+        output: { type: 'wood_pickaxe', count: 1 }
+      },
+      {
+        pattern: [
+          'stone', 'stone', 'stone',
+          null, 'stick', null,
+          null, 'stick', null
+        ],
+        output: { type: 'stone_pickaxe', count: 1 }
+      },
+      {
+        pattern: [
+          'plank', 'plank', null,
+          'plank', 'stick', null,
+          null, 'stick', null
+        ],
+        output: { type: 'wood_axe', count: 1 }
+      },
+      {
+        pattern: [
+          'stone', 'stone', null,
+          'stone', 'stick', null,
+          null, 'stick', null
+        ],
+        output: { type: 'stone_axe', count: 1 }
+      },
+      {
+        pattern: [
+          'plank', null, null,
+          'stick', null, null,
+          'stick', null, null
+        ],
+        output: { type: 'wood_shovel', count: 1 }
+      },
+      {
+        pattern: [
+          'stone', null, null,
+          'stick', null, null,
+          'stick', null, null
+        ],
+        output: { type: 'stone_shovel', count: 1 }
+      }
+    ];
+
+    function craftPatternMatch() {
+      const types = craftSlots.map(s => s.type || null);
+
+      for (const r of RECIPES) {
+        let ok = true;
+        for (let i = 0; i < 9; i++) {
+          if ((types[i] || null) !== (r.pattern[i] || null)) {
+            ok = false;
+            break;
+          }
+        }
+        if (ok) return r;
+      }
+      return null;
+    }
+
+    function updateCraftResult() {
+      const recipe = craftPatternMatch();
+      craftResult = recipe ? normalizeSlot(recipe.output) : emptySlot();
+      renderCraftResult();
+    }
+
+    function consumeCraftIngredients(recipe) {
+      for (let i = 0; i < 9; i++) {
+        if (recipe.pattern[i]) {
+          const slot = craftSlots[i];
+          slot.count -= 1;
+          if (slot.count <= 0) craftSlots[i] = emptySlot();
+        }
+      }
+    }
+
+    function craftOne() {
+      const recipe = craftPatternMatch();
+      if (!recipe) return false;
+      if (!addItem(recipe.output.type, recipe.output.count)) return false;
+      consumeCraftIngredients(recipe);
+      updateCraftSlots();
+      updateCraftResult();
+      saveGame();
+      return true;
+    }
+
+    function placeOneFromSelectedToCraft(index) {
+      const src = hotbar[selectedSlot];
+      if (!src.type || src.count <= 0) return false;
+      if (isToolItem(src.type)) return false;
+
+      const dst = craftSlots[index];
+      if (dst.type && dst.type !== src.type) return false;
+      if (dst.count >= STACK_LIMIT) return false;
+
+      if (!dst.type) {
+        dst.type = src.type;
+        dst.count = 1;
+      } else {
+        dst.count += 1;
+      }
+
+      src.count -= 1;
+      if (src.count <= 0) {
+        hotbar[selectedSlot] = emptySlot();
+      }
+      updateCraftSlots();
+      updateCraftResult();
+      saveGame();
+      return true;
+    }
+
+    function takeOneFromCraft(index) {
+      const slot = craftSlots[index];
+      if (!slot.type || slot.count <= 0) return false;
+
+      if (addItem(slot.type, 1)) {
+        slot.count -= 1;
+        if (slot.count <= 0) craftSlots[index] = emptySlot();
+        updateCraftSlots();
+        updateCraftResult();
+        saveGame();
+        return true;
+      }
+      return false;
+    }
+
+    // =========================
+    // 玩家生命 / 饥饿 / 坠落 / 受击闪红
     // =========================
     const MAX_HEALTH = 20;
     const MAX_HUNGER = 20;
     const EYE_HEIGHT = 1.6;
+    const STEP_HEIGHT = 0.65;
 
     let health = MAX_HEALTH;
     let hunger = MAX_HUNGER;
+    let playerPos = new THREE.Vector3(0, 0, 0);
     let spawnPosition = new THREE.Vector3(0, 0, 0);
 
     let fallStartY = null;
     let starvationTimer = 0;
     let statsDirty = false;
     let statSaveTimer = 0;
+
+    const PLAYER_HEIGHT = 1.8;
+    const PLAYER_HALF_WIDTH = 0.30;
+    const GRAVITY = 18;
+    const JUMP_VELOCITY = 6.9;
+    const COLLISION_EPS = 0.001;
+    let verticalVelocity = 0;
+    let onGround = false;
+    let jumpQueued = false;
+
+    let damageFlash = 0;
+    const damageFlashEl = document.getElementById('damageFlash');
 
     function updateVitalsUI() {
       healthFill.style.width = `${(Math.max(0, health) / MAX_HEALTH) * 100}%`;
@@ -551,12 +929,10 @@
     function takeDamage(amount) {
       if (health <= 0) return;
       health = Math.max(0, health - amount);
+      damageFlash = 1;
       updateVitalsUI();
       markStatsDirty();
-
-      if (health <= 0) {
-        respawnPlayer();
-      }
+      if (health <= 0) respawnPlayer();
     }
 
     function heal(amount) {
@@ -568,16 +944,24 @@
       }
     }
 
+    function syncCameraToPlayer() {
+      camera.position.set(playerPos.x, playerPos.y + EYE_HEIGHT, playerPos.z);
+    }
+
     function respawnPlayer() {
       health = MAX_HEALTH;
       hunger = MAX_HUNGER;
-      velocityY = 0;
+      verticalVelocity = 0;
       onGround = false;
       fallStartY = null;
       starvationTimer = 0;
 
-      camera.position.copy(spawnPosition);
-      camera.position.y = getSurfaceYAt(Math.round(spawnPosition.x), Math.round(spawnPosition.z)) + EYE_HEIGHT + 2;
+      playerPos.copy(spawnPosition);
+      if (playerPos.lengthSq() === 0) {
+        playerPos.set(0, getSurfaceYAt(0, 0), 12);
+        spawnPosition.copy(playerPos);
+      }
+      syncCameraToPlayer();
 
       yaw = 0;
       pitch = 0;
@@ -587,19 +971,182 @@
       saveGame();
     }
 
+    function getPlayerBox(pos = playerPos) {
+      return {
+        minX: pos.x - PLAYER_HALF_WIDTH,
+        maxX: pos.x + PLAYER_HALF_WIDTH,
+        minY: pos.y,
+        maxY: pos.y + PLAYER_HEIGHT,
+        minZ: pos.z - PLAYER_HALF_WIDTH,
+        maxZ: pos.z + PLAYER_HALF_WIDTH
+      };
+    }
+
+    function isSolidBlockType(type) {
+      return !!type && type !== 'water';
+    }
+
+    function intersectsBlock(box, bx, by, bz) {
+      const minX = bx - 0.5, maxX = bx + 0.5;
+      const minY = by - 0.5, maxY = by + 0.5;
+      const minZ = bz - 0.5, maxZ = bz + 0.5;
+      return !(box.maxX <= minX || box.minX >= maxX || box.maxY <= minY || box.minY >= maxY || box.maxZ <= minZ || box.minZ >= maxZ);
+    }
+
+    function canOccupy(pos) {
+      const box = getPlayerBox(pos);
+
+      const minBX = Math.floor(box.minX - 0.5) - 1;
+      const maxBX = Math.ceil(box.maxX + 0.5) + 1;
+      const minBY = Math.floor(box.minY - 0.5) - 1;
+      const maxBY = Math.ceil(box.maxY + 0.5) + 1;
+      const minBZ = Math.floor(box.minZ - 0.5) - 1;
+      const maxBZ = Math.ceil(box.maxZ + 0.5) + 1;
+
+      for (let bx = minBX; bx <= maxBX; bx++) {
+        for (let by = minBY; by <= maxBY; by++) {
+          for (let bz = minBZ; bz <= maxBZ; bz++) {
+            const type = getBlockType(bx, by, bz);
+            if (!isSolidBlockType(type)) continue;
+            if (intersectsBlock(box, bx, by, bz)) return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function findSupportSurfaceUnderPlayer(pos) {
+      const box = getPlayerBox(pos);
+      const points = [
+        [box.minX + 0.06, box.minZ + 0.06],
+        [box.minX + 0.06, box.maxZ - 0.06],
+        [box.maxX - 0.06, box.minZ + 0.06],
+        [box.maxX - 0.06, box.maxZ - 0.06],
+        [pos.x, pos.z]
+      ];
+
+      const feetY = pos.y;
+      let best = -Infinity;
+
+      for (const [sx, sz] of points) {
+        const gx = Math.floor(sx);
+        const gz = Math.floor(sz);
+
+        for (let y = Math.floor(feetY); y >= Math.floor(feetY) - 6; y--) {
+          const t = getBlockType(gx, y, gz);
+          if (isSolidBlockType(t)) {
+            best = Math.max(best, y + 0.5);
+            break;
+          }
+        }
+      }
+
+      return best === -Infinity ? null : best;
+    }
+
+    function attemptHorizontalMove(dx, dz, stepUpAllowed = true) {
+      const start = playerPos.clone();
+      const candidate = start.clone();
+      candidate.x += dx;
+      candidate.z += dz;
+
+      if (canOccupy(candidate)) {
+        playerPos.copy(candidate);
+        return true;
+      }
+
+      if (stepUpAllowed) {
+        for (const s of [0.15, 0.25, 0.35, 0.45, 0.55, 0.65]) {
+          candidate.set(start.x + dx, start.y + s, start.z + dz);
+          if (canOccupy(candidate)) {
+            playerPos.copy(candidate);
+            return true;
+          }
+        }
+      }
+
+      candidate.set(start.x + dx, start.y, start.z);
+      if (canOccupy(candidate)) {
+        playerPos.copy(candidate);
+        return true;
+      }
+
+      candidate.set(start.x, start.y, start.z + dz);
+      if (canOccupy(candidate)) {
+        playerPos.copy(candidate);
+        return true;
+      }
+
+      return false;
+    }
+
+    function applyVerticalMove(dy) {
+      const startY = playerPos.y;
+      playerPos.y += dy;
+
+      if (canOccupy(playerPos)) return true;
+
+      if (dy < 0) {
+        const support = findSupportSurfaceUnderPlayer(playerPos);
+        if (support !== null && support <= startY + 0.01 && support >= startY - 2.5) {
+          playerPos.y = support;
+          return false;
+        }
+      }
+
+      playerPos.y = startY;
+      return false;
+    }
+
+    function sampleWaterEnvironment(pos) {
+      const box = getPlayerBox(pos);
+      const xs = [box.minX + 0.08, (box.minX + box.maxX) / 2, box.maxX - 0.08];
+      const zs = [box.minZ + 0.08, (box.minZ + box.maxZ) / 2, box.maxZ - 0.08];
+      const ys = [box.minY + 0.06, box.minY + 0.62, box.minY + 1.10, box.maxY - 0.12];
+
+      let waterCount = 0;
+      let total = 0;
+      let surface = -Infinity;
+
+      for (const sx of xs) {
+        for (const sz of zs) {
+          for (const sy of ys) {
+            const bx = Math.floor(sx);
+            const by = Math.floor(sy);
+            const bz = Math.floor(sz);
+            const t = getBlockType(bx, by, bz);
+            if (t === 'water') {
+              waterCount++;
+              surface = Math.max(surface, by + 0.5);
+            }
+            total++;
+          }
+        }
+      }
+
+      return {
+        submersion: total > 0 ? waterCount / total : 0,
+        surface: surface === -Infinity ? null : surface
+      };
+    }
+
     // =========================
-    // 世界 / 地形 / 树木
+    // 世界 / 地形 / 树木 / 河流 / 高山 / 峡谷 / 动态水
     // =========================
     const CHUNK_SIZE = 16;
     const STREAM_LOAD_RADIUS = 3;
     const STARTUP_LOAD_RADIUS = 5;
     const MAX_CHUNKS_PER_FRAME = 8;
-    const MAX_BUILD_HEIGHT = 32;
+    const CHUNK_BUILD_BUDGET_MS = 4.5;
+    const MAX_BUILD_HEIGHT = 48;
+
     const WORLD_EDIT = new Map();
     const loadedChunks = new Map();
     const chunkLoadQueue = [];
     const queuedChunkSet = new Set();
     const raycaster = new THREE.Raycaster();
+
+    const waterCells = new Map(); // key -> level(1..8)
 
     function key3(x, y, z) {
       return `${x}|${y}|${z}`;
@@ -610,10 +1157,7 @@
     }
 
     function blockToChunkCoord(x, z) {
-      return {
-        cx: Math.floor(x / CHUNK_SIZE),
-        cz: Math.floor(z / CHUNK_SIZE)
-      };
+      return { cx: Math.floor(x / CHUNK_SIZE), cz: Math.floor(z / CHUNK_SIZE) };
     }
 
     function queueChunk(cx, cz) {
@@ -623,28 +1167,48 @@
       queuedChunkSet.add(ck);
     }
 
-    function processChunkQueue(maxCount = MAX_CHUNKS_PER_FRAME) {
+    function processChunkQueue() {
+      const start = performance.now();
       let count = 0;
-
-      while (chunkLoadQueue.length > 0 && count < maxCount) {
+      while (chunkLoadQueue.length > 0 && count < MAX_CHUNKS_PER_FRAME && performance.now() - start < CHUNK_BUILD_BUDGET_MS) {
         const { cx, cz, ck } = chunkLoadQueue.shift();
         queuedChunkSet.delete(ck);
-
-        if (!loadedChunks.has(ck)) {
-          loadChunk(cx, cz);
-        }
-
+        if (!loadedChunks.has(ck)) loadChunk(cx, cz);
         count++;
       }
     }
 
-    function terrainHeight(x, z) {
-      const n =
-        Math.sin(x * 0.18) * 1.6 +
-        Math.cos(z * 0.2) * 1.3 +
-        Math.sin((x + z) * 0.11) * 0.9;
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function smooth(t) { return t * t * (3 - 2 * t); }
 
-      return Math.max(2, Math.min(8, Math.floor(4 + n)));
+    const terrainHeightCache = new Map();
+    const riverFieldCache = new Map();
+
+    function valueNoise(x, z, seed = 0) {
+      const xi = Math.floor(x);
+      const zi = Math.floor(z);
+      const xf = x - xi;
+      const zf = z - zi;
+      const u = smooth(xf);
+      const v = smooth(zf);
+
+      const a = hash2(xi, zi, seed);
+      const b = hash2(xi + 1, zi, seed);
+      const c = hash2(xi, zi + 1, seed);
+      const d = hash2(xi + 1, zi + 1, seed);
+
+      return lerp(lerp(a, b, u), lerp(c, d, u), v) * 2 - 1;
+    }
+
+    function fbm(x, z, seed = 0, octaves = 4) {
+      let sum = 0, amp = 1, freq = 1, norm = 0;
+      for (let i = 0; i < octaves; i++) {
+        sum += valueNoise(x * freq, z * freq, seed + i) * amp;
+        norm += amp;
+        amp *= 0.5;
+        freq *= 2;
+      }
+      return sum / norm;
     }
 
     function hash2(x, z, seed = 0) {
@@ -652,8 +1216,44 @@
       return n - Math.floor(n);
     }
 
+    const WATER_LEVEL = 5;
+    const SNOW_LEVEL = 14;
+
+    function riverField(x, z) {
+      const k = `${x}|${z}`;
+      if (riverFieldCache.has(k)) return riverFieldCache.get(k);
+
+      const n1 = fbm(x * 0.018, z * 0.018, 9, 4);
+      const n2 = fbm((x + 180) * 0.03, (z - 120) * 0.03, 10, 3);
+      const v = Math.abs(n1 * 0.75 + n2 * 0.25);
+      riverFieldCache.set(k, v);
+      return v;
+    }
+
+    function terrainHeight(x, z) {
+      const k = `${x}|${z}`;
+      if (terrainHeightCache.has(k)) return terrainHeightCache.get(k);
+
+      const continent = 7 + fbm(x * 0.008, z * 0.008, 1, 5) * 4;
+      const hills = fbm(x * 0.03, z * 0.03, 2, 4) * 3.2;
+      const mountainBase = Math.max(0, fbm(x * 0.015, z * 0.015, 3, 5));
+      const mountains = Math.pow(mountainBase, 2.4) * 18;
+
+      const canyonMask = Math.abs(fbm(x * 0.02, z * 0.02, 4, 4));
+      const canyon = Math.max(0, 0.28 - canyonMask) * 18;
+
+      const riverMask = riverField(x, z);
+      const river = Math.max(0, 0.16 - riverMask) * 24;
+
+      const h = Math.max(1, Math.floor(continent + hills + mountains - canyon - river));
+      terrainHeightCache.set(k, h);
+      return h;
+    }
+
     function treeRootAt(x, z) {
-      if (terrainHeight(x, z) < 4) return false;
+      const h = terrainHeight(x, z);
+      if (h < 5 || h > SNOW_LEVEL - 2) return false;
+      if (riverField(x, z) < 0.15) return false;
       return hash2(x, z, 1) < 0.045;
     }
 
@@ -664,24 +1264,18 @@
     function treeBlockAt(x, y, z) {
       for (let dx = -2; dx <= 2; dx++) {
         for (let dz = -2; dz <= 2; dz++) {
-          const rx = x - dx;
-          const rz = z - dz;
-
+          const rx = x - dx, rz = z - dz;
           if (!treeRootAt(rx, rz)) continue;
 
           const baseY = terrainHeight(rx, rz);
           const h = treeHeightAt(rx, rz);
           const trunkTop = baseY + h;
 
-          if (x === rx && z === rz && y > baseY && y <= trunkTop) {
-            return 'wood';
-          }
+          if (x === rx && z === rz && y > baseY && y <= trunkTop) return 'wood';
 
           const dy = y - trunkTop;
           const dist2 = dx * dx + dz * dz + dy * dy;
-          if (y >= trunkTop - 1 && y <= trunkTop + 2 && dist2 <= 6.5) {
-            return 'leaf';
-          }
+          if (y >= trunkTop - 1 && y <= trunkTop + 2 && dist2 <= 6.5) return 'leaf';
         }
       }
       return null;
@@ -689,26 +1283,66 @@
 
     function baseTypeAt(x, y, z) {
       const h = terrainHeight(x, z);
-      if (y > h) return null;
+      const riverMask = riverField(x, z);
+      const inRiverBand = riverMask < 0.16;
+
+      if (y > h) {
+        if (inRiverBand && y <= WATER_LEVEL) return 'water';
+        return null;
+      }
 
       if (y === h) {
-        if (h <= 3) return 'sand';
-        if (hash2(x, z, 5) < 0.07) return 'gravel';
+        if (h >= SNOW_LEVEL) return 'snow';
+        if (h <= WATER_LEVEL + 1) return 'sand';
+        if (inRiverBand && h <= WATER_LEVEL + 2) return 'sand';
         return 'grass';
       }
 
       if (y >= h - 2) {
-        if (h <= 3) return 'sand';
+        if (h <= WATER_LEVEL + 1) return 'sand';
         return 'dirt';
       }
 
-      if (hash2(x, z, 6) < 0.02 && y === h - 3) return 'gravel';
       return 'stone';
+    }
+
+    function isWaterSource(x, y, z) {
+      return baseTypeAt(x, y, z) === 'water';
+    }
+
+    function waterKey(x, y, z) {
+      return `${x}|${y}|${z}`;
+    }
+
+    function setWaterCell(x, y, z, level, markDirty = true) {
+      const k = waterKey(x, y, z);
+      const existing = waterCells.get(k) || 0;
+      if (level <= 0) {
+        if (waterCells.has(k)) {
+          waterCells.delete(k);
+          if (markDirty) markChunkDirtyByBlock(x, z);
+        }
+        return;
+      }
+      const nl = Math.max(1, Math.min(8, Math.floor(level)));
+      if (existing === nl) return;
+      waterCells.set(k, nl);
+      if (markDirty) markChunkDirtyByBlock(x, z);
+    }
+
+    function getWaterLevelAt(x, y, z) {
+      const k = waterKey(x, y, z);
+      if (waterCells.has(k)) return waterCells.get(k);
+      if (isWaterSource(x, y, z)) return 8;
+      return 0;
     }
 
     function getBlockType(x, y, z) {
       const k = key3(x, y, z);
       if (WORLD_EDIT.has(k)) return WORLD_EDIT.get(k);
+
+      if (waterCells.has(waterKey(x, y, z))) return 'water';
+      if (isWaterSource(x, y, z)) return 'water';
 
       const tree = treeBlockAt(x, y, z);
       if (tree) return tree;
@@ -718,74 +1352,40 @@
 
     function getSurfaceYAt(x, z) {
       for (let y = MAX_BUILD_HEIGHT; y >= -8; y--) {
-        if (getBlockType(x, y, z)) return y + 0.5;
+        const t = getBlockType(x, y, z);
+        if (t && t !== 'water') return y + 0.5;
       }
       return 0.5;
     }
 
+    function topColorForMinimap(x, z) {
+      const h = terrainHeight(x, z);
+      const riverMask = riverField(x, z);
+      const inRiverBand = riverMask < 0.16;
+
+      if (inRiverBand && h <= WATER_LEVEL + 1) return '#4aa3ff';
+      if (h >= SNOW_LEVEL) return '#f5f9ff';
+      if (h <= WATER_LEVEL + 1) return '#d9c98b';
+      if (h > 18) return '#9b9b9b';
+      if (treeRootAt(x, z)) return '#4aa14a';
+      if (hash2(x, z, 11) < 0.03) return '#9a9a9a';
+      return '#5dbb63';
+    }
+
     const FACE_DEFS = [
-      {
-        normal: [1, 0, 0],
-        corners: [
-          [0.5, -0.5, -0.5],
-          [0.5,  0.5, -0.5],
-          [0.5,  0.5,  0.5],
-          [0.5, -0.5,  0.5]
-        ]
-      },
-      {
-        normal: [-1, 0, 0],
-        corners: [
-          [-0.5, -0.5,  0.5],
-          [-0.5,  0.5,  0.5],
-          [-0.5,  0.5, -0.5],
-          [-0.5, -0.5, -0.5]
-        ]
-      },
-      {
-        normal: [0, 1, 0],
-        corners: [
-          [-0.5, 0.5,  0.5],
-          [ 0.5, 0.5,  0.5],
-          [ 0.5, 0.5, -0.5],
-          [-0.5, 0.5, -0.5]
-        ]
-      },
-      {
-        normal: [0, -1, 0],
-        corners: [
-          [-0.5, -0.5, -0.5],
-          [ 0.5, -0.5, -0.5],
-          [ 0.5, -0.5,  0.5],
-          [-0.5, -0.5,  0.5]
-        ]
-      },
-      {
-        normal: [0, 0, 1],
-        corners: [
-          [ 0.5, -0.5, 0.5],
-          [ 0.5,  0.5, 0.5],
-          [-0.5,  0.5, 0.5],
-          [-0.5, -0.5, 0.5]
-        ]
-      },
-      {
-        normal: [0, 0, -1],
-        corners: [
-          [-0.5, -0.5, -0.5],
-          [-0.5,  0.5, -0.5],
-          [ 0.5,  0.5, -0.5],
-          [ 0.5, -0.5, -0.5]
-        ]
-      }
+      { normal: [1, 0, 0], corners: [[0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [0.5, -0.5, 0.5]] },
+      { normal: [-1, 0, 0], corners: [[-0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5]] },
+      { normal: [0, 1, 0], corners: [[-0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5]] },
+      { normal: [0, -1, 0], corners: [[-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5]] },
+      { normal: [0, 0, 1], corners: [[0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, -0.5, 0.5]] },
+      { normal: [0, 0, -1], corners: [[-0.5, -0.5, -0.5], [-0.5, 0.5, -0.5], [0.5, 0.5, -0.5], [0.5, -0.5, -0.5]] }
     ];
 
-    function buildChunkGeometry(cx, cz, type) {
-      const positions = [];
-      const normals = [];
-      const uvs = [];
-      const indices = [];
-      const faceMap = [];
+    function buildChunkGeometries(cx, cz) {
+      const buckets = {};
+      for (const type of BLOCK_TYPES) {
+        buckets[type] = { positions: [], normals: [], uvs: [], indices: [], faceMap: [] };
+      }
 
       const startX = cx * CHUNK_SIZE;
       const startZ = cz * CHUNK_SIZE;
@@ -796,70 +1396,84 @@
           const gz = startZ + lz;
 
           for (let y = -8; y <= MAX_BUILD_HEIGHT; y++) {
-            if (getBlockType(gx, y, gz) !== type) continue;
+            const type = getBlockType(gx, y, gz);
+            if (!type || !buckets[type]) continue;
 
+            const bucket = buckets[type];
             for (const face of FACE_DEFS) {
               const nx = gx + face.normal[0];
               const ny = y + face.normal[1];
               const nz = gz + face.normal[2];
-
               if (getBlockType(nx, ny, nz)) continue;
 
-              const base = positions.length / 3;
-
+              const base = bucket.positions.length / 3;
               for (let i = 0; i < 4; i++) {
                 const c = face.corners[i];
-                positions.push(gx + c[0], y + c[1], gz + c[2]);
-                normals.push(face.normal[0], face.normal[1], face.normal[2]);
+                bucket.positions.push(gx + c[0], y + c[1], gz + c[2]);
+                bucket.normals.push(face.normal[0], face.normal[1], face.normal[2]);
               }
-
-              uvs.push(
-                0, 0,
-                1, 0,
-                1, 1,
-                0, 1
-              );
-
-              indices.push(
-                base, base + 1, base + 2,
-                base, base + 2, base + 3
-              );
-
-              faceMap.push({
-                x: gx,
-                y,
-                z: gz,
-                normal: face.normal
-              });
+              bucket.uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+              bucket.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+              bucket.faceMap.push({ x: gx, y, z: gz, normal: face.normal });
             }
           }
         }
       }
 
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-      if (indices.length > 0) geo.setIndex(indices);
-      geo.computeBoundingSphere();
-      geo.userData.faceMap = faceMap;
-      return geo;
+      const geometries = {};
+      for (const type of BLOCK_TYPES) {
+        const b = buckets[type];
+        if (b.positions.length === 0) {
+          geometries[type] = null;
+          continue;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(b.positions, 3));
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(b.uvs, 2));
+        geo.setIndex(b.indices);
+        geo.computeBoundingSphere();
+        geo.userData.faceMap = b.faceMap;
+        geometries[type] = geo;
+      }
+      return geometries;
+    }
+
+    function seedWaterSourcesForChunk(cx, cz) {
+      const startX = cx * CHUNK_SIZE;
+      const startZ = cz * CHUNK_SIZE;
+
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+          const gx = startX + lx;
+          const gz = startZ + lz;
+          for (let y = -8; y <= MAX_BUILD_HEIGHT; y++) {
+            if (isWaterSource(gx, y, gz)) {
+              setWaterCell(gx, y, gz, 8, false);
+            }
+          }
+        }
+      }
+    }
+
+    function markChunkDirtyByBlock(x, z) {
+      const { cx, cz } = blockToChunkCoord(x, z);
+      rebuildChunk(cx, cz);
     }
 
     function loadChunk(cx, cz) {
       const ck = chunkKey(cx, cz);
       if (loadedChunks.has(ck)) return loadedChunks.get(ck);
 
+      seedWaterSourcesForChunk(cx, cz);
+
       const group = new THREE.Group();
       const meshes = {};
+      const geometries = buildChunkGeometries(cx, cz);
 
       for (const type of BLOCK_TYPES) {
-        const geo = buildChunkGeometry(cx, cz, type);
-        const posAttr = geo.getAttribute('position');
-        if (!posAttr || posAttr.count === 0) {
-          geo.dispose();
-          continue;
-        }
+        const geo = geometries[type];
+        if (!geo) continue;
 
         const mesh = new THREE.Mesh(geo, materials[type]);
         mesh.castShadow = true;
@@ -880,7 +1494,6 @@
       const ck = chunkKey(cx, cz);
       const chunk = loadedChunks.get(ck);
       if (!chunk) return;
-
       scene.remove(chunk.group);
       chunk.group.traverse(obj => {
         if (obj.isMesh && obj.geometry) obj.geometry.dispose();
@@ -889,8 +1502,8 @@
     }
 
     function ensureChunksAroundPlayer(radius = STREAM_LOAD_RADIUS) {
-      const pcx = Math.floor(camera.position.x / CHUNK_SIZE);
-      const pcz = Math.floor(camera.position.z / CHUNK_SIZE);
+      const pcx = Math.floor(playerPos.x / CHUNK_SIZE);
+      const pcz = Math.floor(playerPos.z / CHUNK_SIZE);
 
       const keep = new Set();
 
@@ -922,9 +1535,7 @@
       const localX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
       const localZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
 
-      const targets = new Set();
-      targets.add(chunkKey(cx, cz));
-
+      const targets = new Set([chunkKey(cx, cz)]);
       if (localX === 0) targets.add(chunkKey(cx - 1, cz));
       if (localX === CHUNK_SIZE - 1) targets.add(chunkKey(cx + 1, cz));
       if (localZ === 0) targets.add(chunkKey(cx, cz - 1));
@@ -938,9 +1549,253 @@
 
     function prewarmWorld() {
       ensureChunksAroundPlayer(STARTUP_LOAD_RADIUS);
-      for (let i = 0; i < 8; i++) {
-        processChunkQueue(MAX_CHUNKS_PER_FRAME);
+    }
+
+    // =========================
+    // 动态水流
+    // =========================
+    const waterDirtyChunks = new Set();
+    let waterSimTimer = 0;
+    const WATER_SIM_INTERVAL = 0.18;
+    const WATER_PROCESS_LIMIT = 500;
+
+    function queueWaterDirty(x, z) {
+      const { cx, cz } = blockToChunkCoord(x, z);
+      waterDirtyChunks.add(chunkKey(cx, cz));
+    }
+
+    function simulateWaterStep() {
+      const entries = [...waterCells.entries()];
+      let processed = 0;
+      const pending = [];
+
+      for (const [k, level] of entries) {
+        if (processed++ > WATER_PROCESS_LIMIT) break;
+        const [x, y, z] = k.split('|').map(Number);
+
+        const actual = getBlockType(x, y, z);
+        if (actual !== 'water') {
+          waterCells.delete(k);
+          queueWaterDirty(x, z);
+          continue;
+        }
+
+        const source = isWaterSource(x, y, z);
+
+        // 下面
+        const by = y - 1;
+        const below = getBlockType(x, by, z);
+        if (!isSolidBlockType(below)) {
+          const existing = getWaterLevelAt(x, by, z);
+          const target = 8;
+          if (existing < target) pending.push([x, by, z, target]);
+          if (!source && level > 1) pending.push([x, y, z, level - 1]);
+          continue;
+        }
+
+        // 横向扩散
+        const dirs = [
+          [1, 0, 0],
+          [-1, 0, 0],
+          [0, 0, 1],
+          [0, 0, -1]
+        ];
+
+        for (const [dx, dy, dz] of dirs) {
+          const nx = x + dx, ny = y + dy, nz = z + dz;
+          const neighborBlock = getBlockType(nx, ny, nz);
+          if (isSolidBlockType(neighborBlock)) continue;
+
+          const neighborLevel = getWaterLevelAt(nx, ny, nz);
+          const targetLevel = Math.max(1, level - 1);
+          if (neighborLevel < targetLevel) pending.push([nx, ny, nz, targetLevel]);
+        }
+
+        if (!source && level > 2) {
+          pending.push([x, y, z, level - 1]);
+        }
       }
+
+      for (const [x, y, z, level] of pending) {
+        const k = waterKey(x, y, z);
+        const prev = waterCells.get(k) || 0;
+        if (level <= 0) {
+          if (waterCells.has(k)) {
+            waterCells.delete(k);
+            queueWaterDirty(x, z);
+          }
+        } else if (prev !== level) {
+          waterCells.set(k, level);
+          queueWaterDirty(x, z);
+        }
+      }
+
+      if (waterDirtyChunks.size > 0) {
+        for (const ck of waterDirtyChunks) {
+          const [cx, cz] = ck.split('|').map(Number);
+          rebuildChunk(cx, cz);
+        }
+        waterDirtyChunks.clear();
+      }
+    }
+
+    // =========================
+    // 粒子系统：破坏碎屑 / 掉落物
+    // =========================
+    const breakParticleGroup = new THREE.Group();
+    scene.add(breakParticleGroup);
+    const breakParticles = [];
+
+    function spawnBreakParticles(type, x, y, z) {
+      const color = materials[type]?.color ? materials[type].color.clone() : new THREE.Color(0xffffff);
+      for (let i = 0; i < 14; i++) {
+        const mat = new THREE.SpriteMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(0.08, 0.08, 0.08);
+        sprite.position.set(x + (Math.random() - 0.5) * 0.5, y + (Math.random() - 0.5) * 0.5, z + (Math.random() - 0.5) * 0.5);
+        breakParticleGroup.add(sprite);
+        breakParticles.push({
+          sprite,
+          vel: new THREE.Vector3((Math.random() - 0.5) * 2.4, Math.random() * 2.8 + 1.4, (Math.random() - 0.5) * 2.4),
+          life: 0.6 + Math.random() * 0.45
+        });
+      }
+    }
+
+    function updateBreakParticles(dt) {
+      for (let i = breakParticles.length - 1; i >= 0; i--) {
+        const p = breakParticles[i];
+        p.life -= dt;
+        if (p.life <= 0) {
+          breakParticleGroup.remove(p.sprite);
+          p.sprite.material.dispose();
+          breakParticles.splice(i, 1);
+          continue;
+        }
+        p.vel.y -= 9 * dt;
+        p.sprite.position.addScaledVector(p.vel, dt);
+        p.sprite.material.opacity = Math.max(0, p.life / 1.05);
+      }
+    }
+
+    const pickupGroup = new THREE.Group();
+    scene.add(pickupGroup);
+
+    const pickupGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
+    const pickupMaterials = new Map();
+    const pickups = [];
+
+    function getPickupMaterial(type) {
+      if (pickupMaterials.has(type)) return pickupMaterials.get(type);
+      const color = materials[type]?.color ? materials[type].color.clone() : new THREE.Color(0xffffff);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 });
+      pickupMaterials.set(type, mat);
+      return mat;
+    }
+
+    function spawnPickup(type, x, y, z, count = 1) {
+      const mesh = new THREE.Mesh(pickupGeo, getPickupMaterial(type));
+      mesh.position.set(x + (Math.random() - 0.5) * 0.25, y + 0.15, z + (Math.random() - 0.5) * 0.25);
+      mesh.castShadow = true;
+      mesh.receiveShadow = false;
+      pickupGroup.add(mesh);
+
+      pickups.push({
+        mesh,
+        type,
+        count,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 1.5, 1.6 + Math.random() * 1.2, (Math.random() - 0.5) * 1.5),
+        age: 0
+      });
+    }
+
+    function updatePickups(dt) {
+      const playerCenter = new THREE.Vector3(playerPos.x, playerPos.y + PLAYER_HEIGHT * 0.5, playerPos.z);
+
+      for (let i = pickups.length - 1; i >= 0; i--) {
+        const p = pickups[i];
+        p.age += dt;
+
+        const water = sampleWaterEnvironment(p.mesh.position);
+        const inWater = water.submersion > 0.08;
+
+        if (inWater) {
+          p.vel.y += (water.submersion * 10.5 - 3.2) * dt;
+          p.vel.multiplyScalar(Math.pow(0.985, dt * 60));
+        } else {
+          p.vel.y -= 9.8 * dt;
+        }
+
+        p.mesh.position.addScaledVector(p.vel, dt);
+        p.mesh.rotation.y += dt * 1.8;
+
+        const gx = Math.floor(p.mesh.position.x);
+        const gz = Math.floor(p.mesh.position.z);
+        const ground = getSurfaceYAt(gx, gz) + 0.15;
+
+        if (p.mesh.position.y < ground) {
+          p.mesh.position.y = ground;
+          p.vel.y *= -0.28;
+          p.vel.x *= 0.76;
+          p.vel.z *= 0.76;
+        }
+
+        if (p.mesh.position.distanceTo(playerCenter) < 1.2) {
+          if (addItem(p.type, p.count)) {
+            pickupGroup.remove(p.mesh);
+            pickups.splice(i, 1);
+            continue;
+          }
+        }
+
+        if (p.age > 120) {
+          pickupGroup.remove(p.mesh);
+          pickups.splice(i, 1);
+        }
+      }
+    }
+
+    // =========================
+    // 小地图
+    // =========================
+    const minimap = document.getElementById('minimap');
+    const mmCtx = minimap.getContext('2d');
+    const MM_CELLS = 40;
+    const MM_CELL_SIZE = 4;
+    const MM_HALF = Math.floor(MM_CELLS / 2);
+    let minimapTimer = 0;
+
+    function drawMinimap() {
+      const px = Math.floor(playerPos.x);
+      const pz = Math.floor(playerPos.z);
+
+      mmCtx.clearRect(0, 0, minimap.width, minimap.height);
+
+      for (let dz = -MM_HALF; dz < MM_HALF; dz++) {
+        for (let dx = -MM_HALF; dx < MM_HALF; dx++) {
+          const wx = px + dx;
+          const wz = pz + dz;
+          mmCtx.fillStyle = topColorForMinimap(wx, wz);
+          mmCtx.fillRect((dx + MM_HALF) * MM_CELL_SIZE, (dz + MM_HALF) * MM_CELL_SIZE, MM_CELL_SIZE, MM_CELL_SIZE);
+        }
+      }
+
+      mmCtx.fillStyle = '#ff3b3b';
+      mmCtx.beginPath();
+      mmCtx.arc(minimap.width / 2, minimap.height / 2, 3.2, 0, Math.PI * 2);
+      mmCtx.fill();
+
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      dir.y = 0;
+      dir.normalize();
+
+      mmCtx.strokeStyle = '#ffffff';
+      mmCtx.lineWidth = 2;
+      mmCtx.beginPath();
+      mmCtx.moveTo(minimap.width / 2, minimap.height / 2);
+      mmCtx.lineTo(minimap.width / 2 + dir.x * 14, minimap.height / 2 + dir.z * 14);
+      mmCtx.stroke();
     }
 
     // =========================
@@ -951,23 +1806,15 @@
         hotbar: hotbar.map(cloneSlot),
         inventory: inventory.map(cloneSlot),
         selectedSlot,
+        craftSlots: craftSlots.map(cloneSlot),
         edits: [...WORLD_EDIT.entries()],
-        camera: {
-          x: camera.position.x,
-          y: camera.position.y,
-          z: camera.position.z
-        },
-        rotation: {
-          yaw,
-          pitch
-        },
+        waterCells: [...waterCells.entries()],
+        camera: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        rotation: { yaw, pitch },
         health,
         hunger,
-        spawnPosition: {
-          x: spawnPosition.x,
-          y: spawnPosition.y,
-          z: spawnPosition.z
-        }
+        playerPosition: { x: playerPos.x, y: playerPos.y, z: playerPos.z },
+        spawnPosition: { x: spawnPosition.x, y: spawnPosition.y, z: spawnPosition.z }
       };
 
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -994,18 +1841,26 @@
           inventory = data.inventory.map(normalizeSlot);
         }
 
-        selectedSlot = typeof data.selectedSlot === 'number'
-          ? Math.max(0, Math.min(HOTBAR_SIZE - 1, data.selectedSlot))
-          : 0;
+        if (Array.isArray(data.craftSlots) && data.craftSlots.length === 9) {
+          for (let i = 0; i < 9; i++) craftSlots[i] = normalizeSlot(data.craftSlots[i]);
+        }
+
+        if (Array.isArray(data.waterCells)) {
+          waterCells.clear();
+          for (const [k, v] of data.waterCells) waterCells.set(k, v);
+        }
+
+        selectedSlot = typeof data.selectedSlot === 'number' ? Math.max(0, Math.min(HOTBAR_SIZE - 1, data.selectedSlot)) : 0;
 
         WORLD_EDIT.clear();
         if (Array.isArray(data.edits)) {
           for (const [k, v] of data.edits) WORLD_EDIT.set(k, v);
         }
 
-        if (data.camera) {
-          camera.position.set(data.camera.x, data.camera.y, data.camera.z);
-        }
+        if (data.playerPosition) playerPos.set(data.playerPosition.x, data.playerPosition.y, data.playerPosition.z);
+        else if (data.camera) playerPos.set(data.camera.x, data.camera.y - EYE_HEIGHT, data.camera.z);
+
+        if (data.camera) camera.position.set(data.camera.x, data.camera.y, data.camera.z);
 
         if (data.rotation) {
           yaw = data.rotation.yaw || 0;
@@ -1019,7 +1874,7 @@
         if (data.spawnPosition) {
           spawnPosition.set(data.spawnPosition.x, data.spawnPosition.y, data.spawnPosition.z);
         } else {
-          spawnPosition.copy(camera.position);
+          spawnPosition.copy(playerPos);
         }
       } catch (err) {
         console.warn('读取存档失败：', err);
@@ -1036,6 +1891,8 @@
     const inventoryPanelEl = document.getElementById('inventoryPanel');
     const inventoryHotbarEl = document.getElementById('inventoryHotbar');
     const inventoryGridEl = document.getElementById('inventoryGrid');
+    const craftGridEl = document.getElementById('craftGrid');
+    const craftResultEl = document.getElementById('craftResult');
     const crosshairEl = document.getElementById('crosshair');
     const startEl = document.getElementById('start');
 
@@ -1047,11 +1904,17 @@
     let inventoryOpen = false;
     let isLocked = false;
     let dragSource = null;
+    let craftOpen = true;
 
     function renderSlotEl(el, slot, isSelected = false) {
       el.classList.toggle('selected', isSelected);
-      el.querySelector('.type').textContent = slot.type ? slot.type : '';
-      el.querySelector('.count').textContent = slot.count > 0 ? String(slot.count) : '';
+      el.querySelector('.type').textContent = slot.type ? (isToolItem(slot.type) ? TOOL_DEFS[slot.type].label : slot.type) : '';
+      const countEl = el.querySelector('.count');
+      if (isToolItem(slot.type) && slot.durability !== null && slot.maxDurability) {
+        countEl.textContent = `${slot.durability}/${slot.maxDurability}`;
+      } else {
+        countEl.textContent = slot.count > 0 ? String(slot.count) : '';
+      }
     }
 
     function updateVitalsUI() {
@@ -1081,9 +1944,7 @@
         el.classList.remove('dragging');
       });
 
-      el.addEventListener('dragover', (e) => {
-        e.preventDefault();
-      });
+      el.addEventListener('dragover', (e) => e.preventDefault());
 
       el.addEventListener('drop', (e) => {
         e.preventDefault();
@@ -1125,6 +1986,48 @@
       inventorySlots.push(el);
     }
 
+    const craftSlotsEls = [];
+    for (let i = 0; i < 9; i++) {
+      const el = document.createElement('div');
+      el.className = 'slot';
+      el.innerHTML = `<div class="type"></div><div class="count"></div>`;
+      el.addEventListener('click', () => {
+        if (!inventoryOpen) return;
+        const cur = selectedItemType();
+        if (cur) {
+          placeOneFromSelectedToCraft(i);
+        } else {
+          takeOneFromCraft(i);
+        }
+      });
+      craftGridEl.appendChild(el);
+      craftSlotsEls.push(el);
+    }
+
+    function renderCraftSlots() {
+      for (let i = 0; i < 9; i++) {
+        const el = craftSlotsEls[i];
+        const slot = craftSlots[i];
+        renderSlotEl(el, slot, false);
+      }
+    }
+
+    function renderCraftResult() {
+      const el = craftResultEl;
+      el.querySelector('.type').textContent = craftResult.type ? (isToolItem(craftResult.type) ? TOOL_DEFS[craftResult.type].label : craftResult.type) : '';
+      el.querySelector('.count').textContent = craftResult.count > 0 ? String(craftResult.count) : '';
+      el.classList.toggle('empty', !craftResult.type);
+    }
+
+    craftResultEl.addEventListener('click', () => {
+      if (!inventoryOpen) return;
+      craftOne();
+    });
+
+    function updateCraftSlots() {
+      renderCraftSlots();
+    }
+
     function renderAllUI() {
       for (let i = 0; i < HOTBAR_SIZE; i++) {
         const slot = hotbar[i];
@@ -1132,17 +2035,15 @@
         renderSlotEl(panelHotbarSlots[i], slot, i === selectedSlot);
       }
 
-      for (let i = 0; i < INVENTORY_SIZE; i++) {
-        renderSlotEl(inventorySlots[i], inventory[i], false);
-      }
+      for (let i = 0; i < INVENTORY_SIZE; i++) renderSlotEl(inventorySlots[i], inventory[i], false);
+      renderCraftSlots();
+      renderCraftResult();
 
       const current = hotbar[selectedSlot];
-      currentSlotInfoEl.textContent = current.type ? `${current.type} × ${current.count}` : '空';
+      currentSlotInfoEl.textContent = current.type ? (isToolItem(current.type) ? `${TOOL_DEFS[current.type].label} ${current.durability}/${current.maxDurability}` : `${current.type} × ${current.count}`) : '空';
       inventoryInfoEl.textContent = `${occupiedCount(inventory)}/${INVENTORY_SIZE}`;
-
       inventoryPanelEl.style.display = inventoryOpen ? 'block' : 'none';
       crosshairEl.style.display = inventoryOpen ? 'none' : 'block';
-
       updateVitalsUI();
     }
 
@@ -1154,11 +2055,14 @@
 
     function toggleInventory() {
       inventoryOpen = !inventoryOpen;
+      if (inventoryOpen && document.pointerLockElement) document.exitPointerLock();
+      renderAllUI();
+    }
 
-      if (inventoryOpen && document.pointerLockElement) {
-        document.exitPointerLock();
-      }
-
+    function toggleCrafting() {
+      craftOpen = !craftOpen;
+      inventoryOpen = craftOpen ? true : inventoryOpen;
+      if (inventoryOpen && document.pointerLockElement) document.exitPointerLock();
       renderAllUI();
     }
 
@@ -1168,17 +2072,9 @@
     let yaw = 0;
     let pitch = 0;
 
-    const moveState = {
-      forward: false,
-      backward: false,
-      left: false,
-      right: false,
-      jump: false
-    };
+    const moveState = { forward: false, backward: false, left: false, right: false };
 
     const clock = new THREE.Clock();
-    let velocityY = 0;
-    let onGround = false;
 
     startEl.addEventListener('click', () => {
       document.body.requestPointerLock();
@@ -1186,11 +2082,8 @@
 
     document.addEventListener('pointerlockchange', () => {
       isLocked = document.pointerLockElement === document.body;
-      if (!inventoryOpen) {
-        startEl.style.display = isLocked ? 'none' : 'flex';
-      } else {
-        startEl.style.display = 'none';
-      }
+      if (!inventoryOpen) startEl.style.display = isLocked ? 'none' : 'flex';
+      else startEl.style.display = 'none';
       renderAllUI();
     });
 
@@ -1203,23 +2096,16 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyE') {
-        toggleInventory();
-        return;
-      }
+      if (e.code === 'KeyE') { toggleInventory(); return; }
+      if (e.code === 'KeyC') { toggleInventory(); return; }
 
-      if (!inventoryOpen && e.code === 'KeyF') {
-        useSelectedItem();
-        return;
-      }
-
+      if (!inventoryOpen && e.code === 'KeyF') { useSelectedItem(); return; }
       if (inventoryOpen) return;
 
       if (e.code === 'KeyW') moveState.forward = true;
       if (e.code === 'KeyS') moveState.backward = true;
       if (e.code === 'KeyA') moveState.left = true;
       if (e.code === 'KeyD') moveState.right = true;
-      if (e.code === 'Space') moveState.jump = true;
 
       if (e.code === 'Digit1') selectSlot(0);
       if (e.code === 'Digit2') selectSlot(1);
@@ -1230,6 +2116,8 @@
       if (e.code === 'Digit7') selectSlot(6);
       if (e.code === 'Digit8') selectSlot(7);
       if (e.code === 'Digit9') selectSlot(8);
+
+      if (e.code === 'Space' && !e.repeat) jumpQueued = true;
     });
 
     document.addEventListener('keyup', (e) => {
@@ -1237,7 +2125,6 @@
       if (e.code === 'KeyS') moveState.backward = false;
       if (e.code === 'KeyA') moveState.left = false;
       if (e.code === 'KeyD') moveState.right = false;
-      if (e.code === 'Space') moveState.jump = false;
     });
 
     document.addEventListener('wheel', (e) => {
@@ -1250,13 +2137,13 @@
     // 鼠标破坏 / 放置
     // =========================
     function getAimHit() {
+      raycaster.near = 0.1;
+      raycaster.far = 8;
       raycaster.setFromCamera({ x: 0, y: 0 }, camera);
 
       const targets = [];
       for (const chunk of loadedChunks.values()) {
-        for (const mesh of Object.values(chunk.meshes)) {
-          targets.push(mesh);
-        }
+        for (const mesh of Object.values(chunk.meshes)) targets.push(mesh);
       }
 
       const hits = raycaster.intersectObjects(targets, false);
@@ -1268,6 +2155,14 @@
       const map = mesh?.geometry?.userData?.faceMap;
       if (!map) return null;
       return map[Math.floor(hit.faceIndex / 2)] || null;
+    }
+
+    function blockWouldCollidePlayer(x, y, z) {
+      const box = getPlayerBox();
+      const minX = x - 0.5, maxX = x + 0.5;
+      const minY = y - 0.5, maxY = y + 0.5;
+      const minZ = z - 0.5, maxZ = z + 0.5;
+      return !(box.maxX <= minX || box.minX >= maxX || box.maxY <= minY || box.minY >= maxY || box.maxZ <= minZ || box.minZ >= maxZ);
     }
 
     function destroyBlock() {
@@ -1282,7 +2177,14 @@
       if (!blockType) return;
 
       WORLD_EDIT.set(key3(x, y, z), null);
-      addItem(blockType, 1);
+
+      if (blockType !== 'water') {
+        addItem(blockType, 1);
+        spawnPickup(blockType, x, y, z, 1);
+      }
+
+      damageSelectedTool(1);
+      spawnBreakParticles(blockType, x, y, z);
       rebuildAffectedChunksByBlock(x, z);
       saveGame();
     }
@@ -1304,6 +2206,7 @@
       const pz = faceInfo.z + nz;
 
       if (getBlockType(px, py, pz)) return;
+      if (blockWouldCollidePlayer(px, py, pz)) return;
 
       const consumed = consumeSelectedItem();
       if (!consumed) return;
@@ -1315,15 +2218,23 @@
 
     document.addEventListener('mousedown', (e) => {
       if (inventoryOpen) return;
-
       if (!isLocked) {
         document.body.requestPointerLock();
         return;
       }
-
       if (e.button === 0) destroyBlock();
       if (e.button === 2) placeBlock();
     });
+
+    // =========================
+    // 动态水流更新
+    // =========================
+    function updateWater(dt) {
+      waterSimTimer += dt;
+      if (waterSimTimer < WATER_SIM_INTERVAL) return;
+      waterSimTimer = 0;
+      simulateWaterStep();
+    }
 
     // =========================
     // 初始化
@@ -1332,19 +2243,26 @@
     ensureStarterItems();
 
     if (!localStorage.getItem(SAVE_KEY)) {
-      const surface = getSurfaceYAt(0, 0);
-      camera.position.set(0, surface + EYE_HEIGHT + 2, 12);
-      yaw = 0;
-      pitch = 0;
-      camera.rotation.set(pitch, yaw, 0, 'YXZ');
-      spawnPosition.copy(camera.position);
+      playerPos.set(0, getSurfaceYAt(0, 0), 12);
+      spawnPosition.copy(playerPos);
+      syncCameraToPlayer();
     } else if (spawnPosition.lengthSq() === 0) {
-      spawnPosition.copy(camera.position);
+      spawnPosition.copy(playerPos);
     }
 
+    updateCraftSlots();
+    updateCraftResult();
     updateVitalsUI();
     renderAllUI();
     prewarmWorld();
+    for (let i = 0; i < 2; i++) processChunkQueue();
+
+    if (playerPos.lengthSq() === 0) {
+      playerPos.set(0, getSurfaceYAt(0, 0), 12);
+      spawnPosition.copy(playerPos);
+      syncCameraToPlayer();
+    }
+
     saveGame();
 
     // =========================
@@ -1357,24 +2275,27 @@
 
       const dt = Math.min(clock.getDelta(), 0.05);
 
-      skyDome.position.copy(camera.position);
-      sunMesh.position.copy(camera.position).add(new THREE.Vector3(60, 80, -40));
-
-      processChunkQueue(MAX_CHUNKS_PER_FRAME);
+      updateDayNight(dt);
+      processChunkQueue();
       ensureChunksAroundPlayer(STREAM_LOAD_RADIUS);
+
+      skyDome.position.copy(camera.position);
+      breakParticleGroup.position.set(0, 0, 0);
+      pickupGroup.position.set(0, 0, 0);
 
       if (!inventoryOpen) {
         streamTimer += dt;
 
-        const speed = 7;
+        const waterEnv = sampleWaterEnvironment(playerPos);
+        const inWater = waterEnv.submersion > 0.08;
+
+        const speed = inWater ? 3.0 : 7.0;
         const forward = new THREE.Vector3();
         camera.getWorldDirection(forward);
         forward.y = 0;
         forward.normalize();
 
-        const right = new THREE.Vector3()
-          .crossVectors(forward, new THREE.Vector3(0, 1, 0))
-          .normalize();
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
         const moveDir = new THREE.Vector3();
         if (moveState.forward) moveDir.add(forward);
@@ -1384,70 +2305,126 @@
 
         if (moveDir.lengthSq() > 0) {
           moveDir.normalize();
-          camera.position.addScaledVector(moveDir, speed * dt);
+          const mult = inWater ? 0.42 : 1.0;
+          const dx = moveDir.x * speed * dt * mult;
+          const dz = moveDir.z * speed * dt * mult;
+          attemptHorizontalMove(dx, dz, !inWater);
         }
 
         const moving = moveDir.lengthSq() > 0;
 
-        // 饥饿：移动消耗更快，静止消耗更慢
         const hungerDrain = moving ? 0.35 : 0.08;
         hunger = Math.max(0, hunger - hungerDrain * dt);
         markStatsDirty();
 
-        // 饥饿为 0 后开始扣血
         if (hunger <= 0) {
           starvationTimer += dt;
           if (starvationTimer >= 2.5) {
             takeDamage(1);
             starvationTimer = 0;
           }
-        } else {
-          starvationTimer = 0;
-        }
+        } else starvationTimer = 0;
 
-        // 饥饿较高时小幅回血
-        if (hunger >= 18 && health < MAX_HEALTH) {
-          heal(0.15 * dt);
-        }
+        if (hunger >= 18 && health < MAX_HEALTH) heal(0.15 * dt);
 
-        // 重力 / 跳跃
-        const gravity = 18;
-        if (moveState.jump && onGround) {
-          velocityY = 7.8;
-          onGround = false;
-          fallStartY = null;
-        }
+        const groundedBefore = findSupportSurfaceUnderPlayer(playerPos) !== null && !inWater;
+        onGround = groundedBefore;
 
-        velocityY -= gravity * dt;
-        camera.position.y += velocityY * dt;
+        if (inWater) {
+          const sub = waterEnv.submersion;
 
-        // 进入下降阶段时记录坠落起点
-        if (velocityY < 0 && fallStartY === null) {
-          fallStartY = camera.position.y;
-        }
+          if (jumpQueued) {
+            verticalVelocity = Math.max(verticalVelocity, 4.8);
+            jumpQueued = false;
+          }
 
-        // 地面碰撞 + 坠落伤害
-        const x = Math.round(camera.position.x);
-        const z = Math.round(camera.position.z);
-        const groundSurface = getSurfaceYAt(x, z);
-        const landY = groundSurface + EYE_HEIGHT;
+          verticalVelocity += (sub * 14.5 - GRAVITY * 0.72) * dt;
+          verticalVelocity *= Math.pow(0.92, dt * 60);
 
-        if (camera.position.y <= landY) {
-          if (fallStartY !== null) {
-            const fallDistance = fallStartY - landY;
-            if (fallDistance > 5) {
-              const damage = Math.floor((fallDistance - 5) * 2);
-              takeDamage(damage);
+          const dy = verticalVelocity * dt;
+          applyVerticalMove(dy);
+
+          if (waterEnv.surface !== null) {
+            const targetFeet = waterEnv.surface + 0.28;
+            if (playerPos.y < targetFeet && sub > 0.55) {
+              playerPos.y = lerp(playerPos.y, targetFeet, 0.06);
             }
           }
 
-          camera.position.y = landY;
-          velocityY = 0;
-          onGround = true;
-          fallStartY = null;
-        } else {
           onGround = false;
+        } else {
+          if (jumpQueued && groundedBefore) {
+            verticalVelocity = JUMP_VELOCITY;
+            onGround = false;
+            fallStartY = null;
+          }
+          jumpQueued = false;
+
+          verticalVelocity -= GRAVITY * dt;
+          const dy = verticalVelocity * dt;
+          const prevY = playerPos.y;
+          playerPos.y += dy;
+
+          const collided = !canOccupy(playerPos);
+          if (collided) {
+            if (dy > 0) {
+              playerPos.y = prevY;
+              verticalVelocity = 0;
+            } else {
+              const support = findSupportSurfaceUnderPlayer(playerPos);
+              if (support !== null) {
+                playerPos.y = support;
+                if (fallStartY !== null) {
+                  const fallDistance = fallStartY - support;
+                  if (fallDistance > 5) {
+                    const damage = Math.floor((fallDistance - 5) * 2);
+                    takeDamage(damage);
+                  }
+                }
+                verticalVelocity = 0;
+                onGround = true;
+                fallStartY = null;
+              } else {
+                playerPos.y = prevY;
+                verticalVelocity = 0;
+              }
+            }
+          } else {
+            const support = findSupportSurfaceUnderPlayer(playerPos);
+            if (support !== null) {
+              const gap = playerPos.y - support;
+              if (gap >= 0 && gap < 0.08 && verticalVelocity <= 0) {
+                playerPos.y = support;
+                verticalVelocity = 0;
+                onGround = true;
+                fallStartY = null;
+              } else {
+                onGround = false;
+              }
+            } else {
+              onGround = false;
+            }
+
+            if (verticalVelocity < 0 && fallStartY === null && !onGround) {
+              fallStartY = playerPos.y;
+            }
+          }
         }
+
+        syncCameraToPlayer();
+      }
+
+      damageFlash = Math.max(0, damageFlash - dt * 2.8);
+      damageFlashEl.style.opacity = damageFlash.toFixed(3);
+
+      updateWater(dt);
+      updateBreakParticles(dt);
+      updatePickups(dt);
+
+      minimapTimer += dt;
+      if (minimapTimer > 0.10) {
+        drawMinimap();
+        minimapTimer = 0;
       }
 
       statSaveTimer += dt;
